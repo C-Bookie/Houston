@@ -1,0 +1,95 @@
+
+---
+
+# A systematic description of the escape rooms
+
+room1: # escape room scenario
+
+  panels: # room devices
+    - Mbed0: # device ID
+      in:
+        button0: # device feature
+          pins: { # feature details
+            SW2
+          }
+          default: 0
+        button1:
+          pins: {
+            SW3
+          }
+          default: 0
+        directionalButtons:
+          pins: {
+            A0, # fixme
+            A1,
+            A2,
+            A3,
+            A4
+          }
+          default: 0
+      out:
+        rgbLed0:
+          pins: {
+            LED0_RED, # fixme
+            LED0_GREEN,
+            LED0_BLUE,
+          }
+          default: 0
+        rgbLed1:
+          pins: {
+            LED0_RED,
+            LED0_GREEN,
+            LED0_BLUE,
+          }
+          default: 0
+        screen:
+          height: 32
+          width: 128
+          default: "welcome"
+
+  acts: # concurrent scenario plot lines
+    - mainPlot: # the first plot line should conventionally be the main plot line that shall lead to escape
+      - intro: {} # plot line steps
+      - act1: {
+        "press the up button", # clues
+        "push the stick up"
+      }
+      - end: {}
+    - subPlot:
+      - act1: {}
+      - act2: {
+        2843
+      }
+
+  events:
+    - 5min:
+      trigger:
+        type: time
+        time: 2:00
+        action: step1
+    - buttonPresed:
+      trigger:
+        type: peripheral
+        panel: Mbed0
+        finger: button1
+        comparitor: EQUAL
+        value: 1  #true (button was pressed)
+        action: step2
+
+
+  taskLists:
+    - step1:
+      - type: stateChange
+        changes:
+          - mainPlot: act1
+      - type: command
+        panel: Mbed0
+        finger: rgbLed0
+        value: 1
+
+    - step2:
+      - type: command
+        panel: Mbed0
+        finger: rgbLed1
+        value: 1
+
