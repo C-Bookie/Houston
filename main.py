@@ -3,13 +3,14 @@
 #aurthor: Callum B-C
 
 import yaml
+import paho.mqtt.client as mqtt
 
 def run():
     shows = []
 
     #adding a show
-    with yaml.load(open("shows.yaml", 'r')) as showList :
-        shows.append(Show(showList["room1"]))
+    with open("shows.yaml", 'r') as showList :
+        shows.append(Show(yaml.load(showList)["room1"]))
 
 class Show():
     def __init__(self, showScript):
@@ -20,7 +21,7 @@ class Show():
     # reset all IOs and states
     def reset(self):
         for node in self.script["panels"]:
-            for finger in self.script["panels"][node]["out"]:
+            for feature in self.script["panels"][node]["out"]:
                 if "default" in self.script["panels"]:
                     pass # todo send MQTT command, topic: "show/node", finger, self.script["panels"][node][finger]["default"]
 

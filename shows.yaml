@@ -5,8 +5,8 @@
 
 room1: # escape room scenario
 
-  panels: # room devices
-    - Mbed0: # device ID
+  panels: # room props
+    - Mbed0: # prop ID
       in:
         button0: # device feature
           pins: { # feature details
