@@ -2,10 +2,8 @@ import connection
 import time
 
 if __name__ == "__main__":
-	print("Host starting")
 	host = connection.Host()
 	host.start()
-	print("Host started")
 
 	while True:
 		if len(host.connections) >= 1:

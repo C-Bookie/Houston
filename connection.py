@@ -10,6 +10,7 @@ class Connection(threading.Thread):
 		self.conn = conn
 		self.callback = callback
 		self.data = ""
+		print("Connection opened: ", self.conn.getpeername())
 
 
 	def run(self):
@@ -66,25 +67,33 @@ class Connection(threading.Thread):
 			data += packet
 		return data
 
+	def __del__(self):
+		self.conn.shutdown(socket.SHUT_RDWR)
+		self.conn.close()
+
 class Host(threading.Thread):
-	def __init__(self):
+	def __init__(self, port=8089):
+		print("Host starting...")
 		super(Host, self).__init__()
-		self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-		self.s.bind(('', 8089))
-		self.s.listen(5)  # become a server socket, maximum 5 connections
+		self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		self.sock.bind(('', port))
+		self.sock.listen(5)  # become a server socket, maximum 5 connections
 		self.connections = []
+		print("Host started: ", self.sock.getsockname())
 
 	def run(self):
 		while True:
-			conn, address = self.s.accept()
+			conn, address = self.sock.accept()
 			connection = Connection(conn)
+			connection.address = address
 			self.connections += [connection]
 			connection.start()
-			print("New connection: ", len(self.connections))
 
 class Client(Connection):
 	def __init__(self, ip='127.0.0.1', port=8089):
+		print("Client starting...")
 		conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		conn.connect((ip, port))
+		print("Client started: ", conn.getsockname())
 		super(Client, self).__init__(conn)
 
