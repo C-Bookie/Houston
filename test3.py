@@ -1,9 +1,10 @@
 import connection
 
 if __name__ == '__main__':
-    client = connection.Client('192.168.1.233', 8089)
+    client = connection.Client()
     client.start()
 
     while True:
         msg = input(">")
+        print("Sending: ", msg)
         client.send_msg(bytearray(msg, 'utf-8'))

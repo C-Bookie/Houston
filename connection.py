@@ -3,41 +3,44 @@ import socket
 import struct
 import threading
 
-
 class Connection(threading.Thread):
-	def __init__(self, conn, callback=print):
+	def __init__(self, conn, callback=None):
 		threading.Thread.__init__(self)
 		self.conn = conn
 		self.callback = callback
 		self.data = ""
-		print("Connection opened: ", self.conn.getpeername())
+		self.addr, self.port = self.conn.getpeername()
+		self.setName("Thread-" + self.addr + ":" + str(self.port))
+		print(self.conn.getpeername(), "\tConnection opened")
 
 
 	def run(self):
-		while True:
-			try:
-				self.data = self.recv_msg().decode()
-				if self.data != "":
-					self.callback(self.data)
+		try:
+			while True:
+				self.data = self.recv_msg()
+				if self.data is not None:
+					self.data = self.data.decode()
+					if self.data != '':
+						print(self.conn.getpeername(), "\tRecieved: ", self.data)
+						if self.callback is not None:
+							self.callback(self.data)
 				else:
-					print("Empty data!")
-			except socket.error as e:
-				# if e.errno == errno.ECONNRESET:
-				self.conn.close()
-				break
-			except Exception as e:
-				raise (e)
+					print(self.conn.getpeername(), "\tEmpty data!")
+					break
+		# except socket.error as e:
+			# if e.errno == errno.ECONNRESET:
+		except Exception as e:
+			raise(e)
+		finally:
+			self.__del__()
 
 	def send_msg(self, msg):
 		try:
 			msg = struct.pack('>I', len(msg)) + msg
 			self.conn.sendall(msg)
-		except socket.error as e:
-			print("disconnected")
-			# if e.errno == errno.ECONNRESET:
-			self.conn.close()
-			global loop
-			loop = False
+		except Exception as e:
+			self.__del__()
+			raise(e)
 
 	def send_set(self, s):
 		def set_default(obj):
@@ -55,6 +58,7 @@ class Connection(threading.Thread):
 			return None
 		msglen = struct.unpack('>I', raw_msglen)[0]
 		# Read the message data
+		print(self.conn.getpeername(), "\tLength: ", msglen)
 		return self.recvall(msglen)
 
 	def recvall(self, n):
@@ -62,14 +66,18 @@ class Connection(threading.Thread):
 		data = b''
 		while len(data) < n:
 			packet = self.conn.recv(n - len(data))
+			print(self.conn.getpeername(), "\tPacket: ", packet)
 			if not packet:
 				return None
 			data += packet
 		return data
 
 	def __del__(self):
-		self.conn.shutdown(socket.SHUT_RDWR)
+		print(self.conn.getpeername(), "\tClosing connection...")
+		# self.conn.detach()
+		# self.conn.shutdown(socket.SHUT_RDWR)
 		self.conn.close()
+		print("Closed connection")
 
 class Host(threading.Thread):
 	def __init__(self, port=8089):
