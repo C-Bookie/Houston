@@ -36,7 +36,9 @@ class Connection(threading.Thread):
 
 	def send_msg(self, msg):
 		try:
-			msg = struct.pack('>I', len(msg)) + msg
+			size = struct.pack('>I', len(msg))
+			# size = (bytes)(len(msg))
+			msg = size + msg
 			self.conn.sendall(msg)
 		except Exception as e:
 			self.__del__()
