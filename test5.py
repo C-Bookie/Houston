@@ -1,22 +1,38 @@
-from picamera import PiCamera
+PI=False
+
+if PI:
+	from picamera import PiCamera
 from PIL import Image
 from time import sleep
-import pysstv
+import pysstv.color
 import pygame
 
-camera = PiCamera()
+if PI:
+	camera = PiCamera()
 
 image_path = './images/capture.jpg'
+audio_path = './audio/capture.wav'
 
 if __name__== "__main__":
-	camera.capture(image_path)
-	image = Image.open(open(image_path, 'rb'))
-	sstv = pysstv.sstv(image)
-	sstv.write_wav()
+	i = 0
+	while True:
+		print(i)
+		if PI:
+			print("Capturing")
+			camera.exposure_mode = 'auto'
+			camera.capture(image_path)
+		image = Image.open(open(image_path, 'rb'))
+		print("Converting")
+		sstv = pysstv.color.Robot36(image, 48000, 16)
+		print("Saving")
+		sstv.write_wav(audio_path)
 
-	pygame.mixer.init()
-	pygame.mixer.music.load("myFile.wav")
-	pygame.mixer.music.play()
-	while pygame.mixer.music.get_busy() == True:
-		continue
+		print("Playing")
+		pygame.mixer.init()
+		pygame.mixer.music.load(audio_path)
+		pygame.mixer.music.play()
+		while pygame.mixer.music.get_busy() == True:
+			sleep(1)
+		sleep(1)
+		i += 1
 
