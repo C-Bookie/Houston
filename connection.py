@@ -3,7 +3,11 @@ import socket
 import struct
 import threading
 
-class Connection(threading.Thread):
+import serial
+
+DEBUG = False
+
+class SocketHook(threading.Thread):
 	def __init__(self, conn, callback=None):
 		threading.Thread.__init__(self)
 		self.conn = conn
@@ -35,14 +39,19 @@ class Connection(threading.Thread):
 			self.__del__()
 
 	def send_msg(self, msg):
-		try:
-			size = struct.pack('>I', len(msg))
-			# size = (bytes)(len(msg))
-			msg = size + msg
-			self.conn.sendall(msg)
-		except Exception as e:
-			self.__del__()
-			raise(e)
+		if msg == '':
+			print("Cannot send empty data!")
+		else:
+			try:
+				if type(msg) is str:
+					msg = bytearray(msg, 'utf-8')
+				size = struct.pack('>I', len(msg))
+				# size = (bytes)(len(msg))
+				msg = size + msg
+				self.conn.sendall(msg)
+			except Exception as e:
+				self.__del__()
+				raise(e)
 
 	def send_set(self, s):
 		def set_default(obj):
@@ -60,7 +69,8 @@ class Connection(threading.Thread):
 			return None
 		msglen = struct.unpack('>I', raw_msglen)[0]
 		# Read the message data
-		print(self.conn.getpeername(), "\tLength: ", msglen)
+		if DEBUG:
+			print(self.conn.getpeername(), "\tLength: ", msglen)
 		return self.recvall(msglen)
 
 	def recvall(self, n):
@@ -68,7 +78,8 @@ class Connection(threading.Thread):
 		data = b''
 		while len(data) < n:
 			packet = self.conn.recv(n - len(data))
-			print(self.conn.getpeername(), "\tPacket: ", packet)
+			if DEBUG:
+				print(self.conn.getpeername(), "\tPacket: ", packet)
 			if not packet:
 				return None
 			data += packet
@@ -82,9 +93,10 @@ class Connection(threading.Thread):
 		print("Closed connection")
 
 class Host(threading.Thread):
-	def __init__(self, port=8089):
+	def __init__(self, port=8089, callback=None):
 		print("Host starting...")
 		super(Host, self).__init__()
+		self.callback = callback
 		self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		self.sock.bind(('', port))
 		self.sock.listen(5)  # become a server socket, maximum 5 connections
@@ -94,16 +106,64 @@ class Host(threading.Thread):
 	def run(self):
 		while True:
 			conn, address = self.sock.accept()
-			connection = Connection(conn)
+			connection = SocketHook(conn, self.callback)
 			connection.address = address
 			self.connections += [connection]
 			connection.start()
 
-class Client(Connection):
-	def __init__(self, ip='127.0.0.1', port=8089):
+class Client(SocketHook):
+	def __init__(self, ip='127.0.0.1', port=8089, callback=None):
 		print("Client starting...")
 		conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		conn.connect((ip, port))
 		print("Client started: ", conn.getsockname())
-		super(Client, self).__init__(conn)
+		super(Client, self).__init__(conn, callback)
 
+
+class SerialHook(threading.Thread):
+	def __init__(self, port, bandrate=9600, callback=None):
+		threading.Thread.__init__(self)
+		self.ser = serial.Serial(port, bandrate)
+		self.callback = callback
+
+	def run(self):
+		try:
+			while True:
+				self.ser.inWaiting()
+				self.data = self.ser.readline()
+				if self.data is not None:
+					try:
+						self.data = self.data.decode()
+					except UnicodeDecodeError:
+						continue
+
+					while len(self.data) > 0 and self.data[-1] in ['\r', '\n']:
+						self.data = self.data[:-1]
+
+					if len(self.data) == 0:
+						print("Empty string")
+					else:
+						print("(", self.ser.port, ")\tRecieved: ", self.data)
+						if self.callback is not None:
+							self.callback(self.data)
+				else:
+					print("\tEmpty data!")
+					break
+		except Exception as e:
+			raise(e)
+		finally:
+			self.__del__()
+
+	def sendMsg(self, msg):
+		print("(", self.ser.port, ")\tSending: ", msg)
+		if type(msg) is str:
+			msg = bytearray(msg, 'utf-8')
+		try:
+			self.ser.write(msg)
+		except Exception as e:
+			self.__del__()
+			raise(e)
+
+	def __del__(self):
+		self.ser.close()
+		print("Closed connection")

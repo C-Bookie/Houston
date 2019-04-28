@@ -13,6 +13,9 @@ int packetIndex = 0;
 int packetLen = 0;
 int packetSize = 0;
 
+//const int LED_BUILTIN = 13;
+int cycle = 0;
+
 EthernetClient client;
 
 void resetBuffer(int length) {
@@ -61,6 +64,7 @@ void printStatus() {
 
 
 void setup() {
+  pinMode(LED_BUILTIN, OUTPUT);
   headerBuffer = (unsigned char*) malloc(HEADER_SIZE * sizeof(char));
   Ethernet.begin(mac, ip);
   //  Ethernet.begin(mac);
@@ -83,6 +87,8 @@ void connectionSanity() {
 }
 
 void loop() {
+  Serial.println(cycle, DEC);
+  digitalWrite(LED_BUILTIN, cycle%2==0);
   connectionSanity();
   
   if (client.available()) {
@@ -98,5 +104,5 @@ void loop() {
       addToBuffer(Serial.read());
     sendBuffer();
   }
-  
+  cycle++;  
 }

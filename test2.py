@@ -1,7 +1,6 @@
 import connection
 import time
 
-
 if __name__ == "__main__":
 	host = connection.Host()
 	host.start()

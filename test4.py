@@ -1,8 +1,14 @@
-import serial
+from time import sleep
+import connection
 
-with serial.Serial('COM10', 9600) as ser:
+if __name__ == "__main__":
+	arduino = connection.SerialHook('COM12', 9600)
+	client = connection.Client(callback=arduino.sendMsg)
+	arduino.callback = client.send_msg
+	arduino.start()
+	client.start()
+
 	while True:
-		reading = ser.readline().decode()
-		print(reading)
-		ser.write(bytearray(reading, 'utf-8'))
+		sleep(1)
+
 
