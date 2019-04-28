@@ -160,6 +160,7 @@ class SerialHook(threading.Thread):
 			msg = bytearray(msg, 'utf-8')
 		try:
 			self.ser.write(msg)
+			self.ser.flush()
 		except Exception as e:
 			self.__del__()
 			raise(e)

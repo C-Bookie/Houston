@@ -16,6 +16,7 @@ def reciever(data):
 	else:
 		right -= x
 
+
 	left *= y
 	right *= y
 	left *= 1023
@@ -23,7 +24,7 @@ def reciever(data):
 	left = (int)(left)
 	right = (int)(right)
 
-	msg = str(left)+'|'+str(right)
+	msg = str(left)+'|'+str(right)+'\n'
 	arduino.sendMsg(msg)
 
 if __name__ == "__main__":

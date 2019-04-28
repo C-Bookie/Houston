@@ -48,5 +48,5 @@ if __name__ == '__main__':
 		msg = json.dumps(temp)
 		client.send_msg(msg)
 
-		time.sleep(1)
+		time.sleep(0.1)
 		i += 1

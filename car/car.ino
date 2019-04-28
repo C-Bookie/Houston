@@ -30,7 +30,7 @@ void setup() {
 }
 
 void loop() {
-  if (Serial.available() > 0) {
+  if (Serial.available()) {
     val1 = Serial.readStringUntil('|');
     Serial.read(); 
     val2 = Serial.readStringUntil('\n'); 
@@ -46,5 +46,8 @@ void loop() {
     digitalWrite(In3, y > 0);
     digitalWrite(In4, y < 0);
     analogWrite(En2, abs(y));
+
+    cycle++;
+    digitalWrite(LED_BUILTIN, cycle%2==0);
   }
 }
