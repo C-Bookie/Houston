@@ -5,92 +5,96 @@ import threading
 
 import serial
 
-DEBUG = False
+DEBUG = True
+
 
 class SocketHook(threading.Thread):
-	def __init__(self, conn, callback=None):
+	def __init__(self, conn, callback=None, host=None):
 		threading.Thread.__init__(self)
 		self.conn = conn
 		self.callback = callback
-		self.data = ""
+		self.host = host
+		self.closed = threading.Event()
 		self.addr, self.port = self.conn.getpeername()
 		self.setName("Thread-" + self.addr + ":" + str(self.port))
-		print(self.conn.getpeername(), "\tConnection opened")
+		self.debugPrint("Connection opened")
 
+	def debugPrint(self, *args):
+		if DEBUG:
+			print(self.addr, '|', self.port, '\t', *args)
 
 	def run(self):
-		try:
-			while True:
-				self.data = self.recv_msg()
-				if self.data is not None:
-					self.data = self.data.decode()
-					if self.data != '':
-						print(self.conn.getpeername(), "\tRecieved: ", self.data)
+		while not self.closed.is_set():
+			try:
+				data = self.recv_msg()
+				if data is not None:
+					data = data.decode()
+					if data != '':
+						self.debugPrint("Recieved: ", data)
 						if self.callback is not None:
-							self.callback(self.data)
+							self.callback(data)
 				else:
-					print(self.conn.getpeername(), "\tEmpty data!")
+					self.debugPrint("Empty data!")
 					break
-		# except socket.error as e:
-			# if e.errno == errno.ECONNRESET:
-		except Exception as e:
-			raise(e)
-		finally:
-			self.__del__()
+			except Exception as e:
+				raise (e)
+			finally:
+				self.close()
+
 
 	def send_msg(self, msg):
-		if msg == '':
-			print("Cannot send empty data!")
-		else:
-			try:
+		try:
+			if msg == '':
+				print("Cannot send empty data!")
+			else:
+				self.debugPrint("Sending: ", msg)
 				if type(msg) is str:
 					msg = bytearray(msg, 'utf-8')
 				size = struct.pack('>I', len(msg))
 				# size = (bytes)(len(msg))
 				msg = size + msg
 				self.conn.sendall(msg)
-			except Exception as e:
-				self.__del__()
-				raise(e)
+		except Exception as e:
+			self.close()
+			raise (e)
 
-	def send_set(self, s):
-		def set_default(obj):
-			if isinstance(obj, set):
-				return list(obj)
-			raise TypeError
-
-		data = json.dumps(s, default=set_default)
-		self.send_msg(data.encode())
+	# def send_set(self, s):
+	# 	def set_default(obj):
+	# 		if isinstance(obj, set):
+	# 			return list(obj)
+	# 		raise TypeError
+	#
+	# 	data = json.dumps(s, default=set_default)
+	# 	self.send_msg(data.encode())
 
 	def recv_msg(self):
-		# Read message length and unpack it into an integer
 		raw_msglen = self.recvall(4)
 		if not raw_msglen:
 			return None
 		msglen = struct.unpack('>I', raw_msglen)[0]
-		# Read the message data
-		if DEBUG:
-			print(self.conn.getpeername(), "\tLength: ", msglen)
+		self.debugPrint("Length: ", msglen)
 		return self.recvall(msglen)
 
 	def recvall(self, n):
-		# Helper function to recv n bytes or return None if EOF is hit
 		data = b''
 		while len(data) < n:
 			packet = self.conn.recv(n - len(data))
-			if DEBUG:
-				print(self.conn.getpeername(), "\tPacket: ", packet)
+			self.debugPrint("Packet: ", packet)
 			if not packet:
-				return None
+				return None  # EOF
 			data += packet
 		return data
 
-	def __del__(self):
-		print(self.conn.getpeername(), "\tClosing connection...")
+	def close(self):
+		self.debugPrint("Closing connection...")
+		self.closed.set()
+		if self.host is not None:
+			self.host.close(self)
 		# self.conn.detach()
 		# self.conn.shutdown(socket.SHUT_RDWR)
 		self.conn.close()
-		print("Closed connection")
+		self.debugPrint("Closed connection")
+
 
 class Host(threading.Thread):
 	def __init__(self, port=8089, callback=None):
@@ -106,18 +110,36 @@ class Host(threading.Thread):
 	def run(self):
 		while True:
 			conn, address = self.sock.accept()
-			connection = SocketHook(conn, self.callback)
+			connection = SocketHook(conn, self.callback, self)
 			connection.address = address
 			self.connections += [connection]
 			connection.start()
 
+	def boradcast(self, msg):
+		for conn in self.connections:
+			conn.send_msg(msg)
+
+	def close(self, client):
+		for i in range(len(self.connections)-1, -1, -1):
+			if self.connections[i] is client:
+				del self.connections[i]
+
+
 class Client(SocketHook):
-	def __init__(self, ip='127.0.0.1', port=8089, callback=None):
+	def __init__(self, addr='127.0.0.1', port=8089, callback=None):
+		self.addr = addr
+		self.port = port
 		print("Client starting...")
-		conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-		conn.connect((ip, port))
-		print("Client started: ", conn.getsockname())
-		super(Client, self).__init__(conn, callback)
+		self.conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		self.connect()
+		print("Client started: ", self.conn.getsockname())
+		super(Client, self).__init__(self.conn, callback)
+
+	def connect(self):
+		try:
+			self.conn.connect((self.addr, self.port))
+		except Exception as e:
+			raise e  # fixme handel reconection
 
 
 class SerialHook(threading.Thread):
@@ -150,7 +172,7 @@ class SerialHook(threading.Thread):
 					print("\tEmpty data!")
 					break
 		except Exception as e:
-			raise(e)
+			raise (e)
 		finally:
 			self.__del__()
 
@@ -163,7 +185,7 @@ class SerialHook(threading.Thread):
 			self.ser.flush()
 		except Exception as e:
 			self.__del__()
-			raise(e)
+			raise (e)
 
 	def __del__(self):
 		self.ser.close()

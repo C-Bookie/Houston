@@ -6,5 +6,6 @@ if __name__ == '__main__':
 
     while True:
         msg = input(">")
-        print("Sending: ", msg)
-        client.send_msg(bytearray(msg, 'utf-8'))
+        if client.closed.is_set():
+            break
+        client.send_msg(msg)

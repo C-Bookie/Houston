@@ -25,16 +25,17 @@ def reciever(data):
 	right = (int)(right)
 
 	msg = str(left)+'|'+str(right)+'\n'
-	arduino.sendMsg(msg)
+	# arduino.sendMsg(msg)
+	print(msg)
 
 if __name__ == "__main__":
 	host = connection.Host(callback=reciever)
 	host.start()
 
-	arduino = connection.SerialHook('COM11', 9600)
-	arduino.ser.flushInput()
-	arduino.ser.flushOutput()
-	arduino.start()
+	# arduino = connection.SerialHook('COM12', 9600)
+	# arduino.ser.flushInput()
+	# arduino.ser.flushOutput()
+	# arduino.start()
 
 	while True:
 			time.sleep(1)

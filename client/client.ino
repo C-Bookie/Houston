@@ -1,68 +1,58 @@
 #include <Ethernet.h>
 
 byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED};
-IPAddress ip(192, 168, 1, 234);
+IPAddress ip(192, 168, 1, 235);
 IPAddress server(192, 168, 1, 233);
 int port = 8089;
 
 const int MAX_BUFFER = 256;
 const int HEADER_SIZE = 4;  // 0 to disable header
 
-unsigned char* inHeaderBuffer = 0;
-unsigned char* inPacketBuffer = 0;
-int inLen = 0;
-int inSize = 0;
+struct Buffer {  // pass by reference
+  unsigned char* packet;
+  unsigned char* header;
+  int length;
+  int size;
+}
 
-unsigned char* outHeaderBuffer = 0;
-unsigned char* outPacketBuffer = 0;
-int outLen = 0;
-int outSize = 0;
+Buffer bufferIn = Buffer{NULL, NULL, 0, 0};
+Buffer bufferOut = Buffer{NULL, NULL, 0, 0};
 
 // const int LED_BUILTIN = 13;
 int cycle = 0;
 
 EthernetClient client;
 
-void makeBuffer(unsigned char* buffer, int len) {
-  int size = len * sizeof(char);
-  if (buffer == 0)
-    buffer = (unsigned char*) malloc(size);
-  else
-    buffer = (unsigned char*) realloc(buffer, size);
-  memset(buffer, 0, size);
-}
-
-void encodeHeader(unsigned char* headerBuffer, int len) {
+void buildBuffer(Buffer* buffer, int len) {
+  buffer->len = len;
   for (int i=0; i<HEADER_SIZE; i++)
-    headerBuffer[i] = (len >> (8 * (HEADER_SIZE-i-1))) & ((2<<8)-1);
+    buffer->header[i] = (buffer->len >> (8 * (HEADER_SIZE-i-1))) & ((2<<8)-1);
+
+  int size = buffer->len * sizeof(char)
+  buffer = realloc(buffer->packet, size);  //may need to cast to (unsigned char*)
+  // memset(buffer->packet, 0, size);
 }
 
-int decodeHeader(unsigned char* headerBuffer) {
-  int size = 0;
-  for (int i=0; i<HEADER_SIZE; i++) {
-    Serial.println((8 * (HEADER_SIZE-i-1)));
-    Serial.println(headerBuffer[i]);
-    size |= headerBuffer[i] >> (8 * (HEADER_SIZE-i-1));
-  }
-  return size;
-}
-
-void sendPacket(unsigned char* packetBuffer, unsigned char* headerBuffer, int len) {
+void sendBuffer(Buffer* buffer) {
   Serial.print("Sending: ");
-  Serial.write(packetBuffer, len);
+  Serial.write(buffer->packet, buffer->len);
   Serial.print("\n");
 
-  encodeHeader(headerBuffer, len);
-  client.write(headerBuffer, HEADER_SIZE);
-  client.write(packetBuffer, len);
+  client.write(buffer->header, HEADER_SIZE);
+  client.write(buffer->packet, buffer->len);
 }
 
-int recievePacket(unsigned char* packetBuffer, unsigned char* headerBuffer) {
-  client.read(headerBuffer, HEADER_SIZE);
-  int len = decodeHeader(headerBuffer);
-  makeBuffer(packetBuffer, len);
-  client.read(packetBuffer, len);
-  return len;
+void recievePacket(Buffer* buffer) {
+  client.read(buffer->header, HEADER_SIZE);
+  for (int i=0; i<HEADER_SIZE; i++)
+    buffer->len |= buffer->header[i] >> (8 * (HEADER_SIZE-i-1));
+
+  packetBuffer = makeBuffer(buffer->packet, buffer->len);
+  client.read(buffer->packet, buffer->len);
+
+  Serial.print("Recieved: ");
+  Serial.write(buffer->packet, buffer->len);
+  Serial.print("\n");
 }
 
 void printStatus() {
@@ -90,11 +80,11 @@ void connectionSanity() {
   client.setTimeout(100);
 }
 
-
 void setup() {
   pinMode(LED_BUILTIN, OUTPUT);
-  makeBuffer(inHeaderBuffer, HEADER_SIZE);
-  makeBuffer(outHeaderBuffer, HEADER_SIZE);
+  bufferIn.header = memalloc(HEADER_SIZE);
+  bufferOut.header = memalloc(HEADER_SIZE);
+
   Ethernet.begin(mac, ip);
   //  Ethernet.begin(mac);
   Serial.begin(9600);
@@ -103,23 +93,29 @@ void setup() {
 }
 
 void loop() {
-  Serial.print("Cycle: ");
-  Serial.println(cycle, DEC);
-  digitalWrite(LED_BUILTIN, cycle%2==0);
   connectionSanity();
+//  Serial.print("Cycle: ");
+//  Serial.println(cycle, DEC);
+  digitalWrite(LED_BUILTIN, cycle%2==0);
   
   if (client.available()) {
-    inLen = recievePacket(inPacketBuffer, inHeaderBuffer);
-    Serial.write(inPacketBuffer, inLen);
+    recievePacket(bufferIn);
+    Serial.write(bufferIn.packet, bufferIn.len);
   }
   
   if (Serial.available() > 0) {
     outLen = Serial.available();
-    makeBuffer(outPacketBuffer, outLen);
-    Serial.println(outPacketBuffer[0], DEC);
+    int newOutLen = 0;
+    while (outLen != newOutLen) {
+      outLen = newOutLen;
+      delay(10);
+      newOutLen = Serial.available();
+    }
+
+    buildBuffer(bufferOut, outLen);
     for (int i=0; i<outLen; i++)
-      outPacketBuffer[i] = Serial.read();
-    sendPacket(outPacketBuffer, outHeaderBuffer, outLen);
+      bufferOut.packet[i] = Serial.read();
+    sendPacket(bufferOut);
   }
   cycle++;  
 }
