@@ -9,6 +9,7 @@ DEBUG = True
 
 
 class SocketHook(threading.Thread):
+	closed = threading.Event()
 	def __init__(self, conn, callback=None, host=None):
 		threading.Thread.__init__(self)
 		self.conn = conn
@@ -36,11 +37,14 @@ class SocketHook(threading.Thread):
 				else:
 					self.debugPrint("Empty data!")
 					break
+			except ConnectionResetError as e:
+				# print(e.)
+				self.onFail()
 			except Exception as e:
 				raise (e)
-			finally:
-				self.close()
 
+	def onFail(self):
+		self.close()
 
 	def send_msg(self, msg):
 		try:
@@ -72,14 +76,14 @@ class SocketHook(threading.Thread):
 		if not raw_msglen:
 			return None
 		msglen = struct.unpack('>I', raw_msglen)[0]
-		self.debugPrint("Length: ", msglen)
+		# self.debugPrint("Length: ", msglen)
 		return self.recvall(msglen)
 
 	def recvall(self, n):
 		data = b''
 		while len(data) < n:
 			packet = self.conn.recv(n - len(data))
-			self.debugPrint("Packet: ", packet)
+			# self.debugPrint("Packet: ", packet)
 			if not packet:
 				return None  # EOF
 			data += packet
@@ -130,16 +134,26 @@ class Client(SocketHook):
 		self.addr = addr
 		self.port = port
 		print("Client starting...")
-		self.conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		self.connect()
-		print("Client started: ", self.conn.getsockname())
 		super(Client, self).__init__(self.conn, callback)
+		print("Client started: ", self.conn.getsockname())
 
 	def connect(self):
-		try:
-			self.conn.connect((self.addr, self.port))
-		except Exception as e:
-			raise e  # fixme handel reconection
+		print("Connecting")
+		while not self.closed.is_set():
+			try:
+				self.conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+				self.conn.connect((self.addr, self.port))
+				print("Connected")
+				break
+			except ConnectionRefusedError:
+				print("Reconecting...")
+			except Exception as e:
+				raise e  # fixme handel reconection
+
+	def onFail(self):
+		print("Connection lost")
+		self.connect()
 
 
 class SerialHook(threading.Thread):
