@@ -1,4 +1,5 @@
 #include <Ethernet.h>
+//TODO: impliment https://arduinojson.org/v5/example/http-client/
 
 byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED};
 IPAddress ip(192, 168, 1, 235);
@@ -23,6 +24,7 @@ struct Buffer *bufferOut;
 int cycle = 0;
 
 EthernetClient client;
+
 
 Buffer* newBuffer() {
   Buffer* buffer = (Buffer*)malloc(sizeof(Buffer));
@@ -68,7 +70,7 @@ void recieveBuffer(Buffer* buffer) {
   for (int i=0; i<HEADER_LEN; i++){
     buffer->len |= buffer->header[i] >> (8 * (HEADER_LEN-i-1));
   }
-  
+
   resizeBuffer(buffer, buffer->len);
   client.read(buffer->packet, buffer->len);
 

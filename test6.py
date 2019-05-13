@@ -4,6 +4,7 @@ import connection
 import time
 
 
+
 def reciever(data):
 	data = json.loads(data)
 	x = data["axis"][0]
@@ -26,10 +27,11 @@ def reciever(data):
 
 	msg = str(left)+'|'+str(right)+'\n'
 	# arduino.sendMsg(msg)
-	print(msg)
+	host.boradcast(msg)
+
+host = connection.Host(callback=reciever)
 
 if __name__ == "__main__":
-	host = connection.Host(callback=reciever)
 	host.start()
 
 	# arduino = connection.SerialHook('COM12', 9600)

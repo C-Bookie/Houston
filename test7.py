@@ -40,9 +40,9 @@ if __name__ == '__main__':
 
 		temp = {
 			"axis": [joysticks[0].get_axis(i) for i in range(joysticks[0].get_numaxes())],
-			# "balls": [joysticks[0].get_ball(i) for i in range(joysticks[0].get_numballs())],
-			# "buttons": [joysticks[0].get_button(i) for i in range(joysticks[0].get_numbuttons())],
-			# "hats": [joysticks[0].get_hat(i) for i in range(joysticks[0].get_numhats())],
+			"balls": [joysticks[0].get_ball(i) for i in range(joysticks[0].get_numballs())],
+			"buttons": [joysticks[0].get_button(i) for i in range(joysticks[0].get_numbuttons())],
+			"hats": [joysticks[0].get_hat(i) for i in range(joysticks[0].get_numhats())],
 		}
 		print(temp)
 		msg = json.dumps(temp)
