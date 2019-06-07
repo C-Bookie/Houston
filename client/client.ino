@@ -8,8 +8,7 @@ int port = 8089;
 
 const int MAX_BUFFER = 256;
 
-const int HEADER_LEN = 4 * sizeof(char);  // 0 to disable header
-const int HEADER_SIZE = HEADER_LEN * sizeof(char);
+const int HEADER_LEN = 4;  // 0 to disable header
 
 struct Buffer {  // pass by reference
   unsigned char* packet;
@@ -30,7 +29,7 @@ Buffer* newBuffer() {
   Buffer* buffer = (Buffer*)malloc(sizeof(Buffer));
   *buffer = Buffer {
     .packet = NULL,
-    .header = (unsigned char*)malloc(HEADER_SIZE),
+    .header = (unsigned char*)malloc(HEADER_LEN),
     .len = 0
   };
   return buffer;

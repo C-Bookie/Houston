@@ -37,7 +37,7 @@ def run():
 	# light_names['cal'].colormode = 'hs'
 
 	base = 0
-	trigger_hot = False
+	button_hot = [False] * joysticks[0].get_numbuttons()
 
 	i = 0
 	while True:
@@ -50,28 +50,30 @@ def run():
 			"hats": [joysticks[0].get_hat(i) for i in range(joysticks[0].get_numhats())],
 		}
 
-		if temp["buttons"][0]:
-			if not trigger_hot:
-				trigger_hot = True
-				base = random.uniform(0, 1)
-		else:
-			if trigger_hot:
-				trigger_hot = False
+		for i in joysticks[0].get_numbuttons():
+			if temp["buttons"][i]:
+				if not button_hot[i]:
+					button_hot[i] = True
+					if i == 0:
+						base = random.uniform(0, 1)
+			else:
+				if button_hot[i]:
+					button_hot[i] = False
 
 		command = {
-			'transitiontime': 5,
+			'transitiontime': 1,
 			#            'on': state,
-			'bri': int((1-((1+temp["axis"][3])/ 2)) * 254),
-			'hue': int(((base + (1+temp["axis"][0])/ 2) % 1) * 254),
-			# 'xy': [(1-((1+temp["axis"][1])/ 2)) * 254, 0]
-			'xy': [int(1-((1+temp["axis"][2])/ 2)), int(1-((1+temp["axis"][1])/ 2))]
+			'bri': int((1-((1+temp["axis"][2])/ 2)) * 254),
+			'hue': int(base + (1-((1+temp["axis"][0])/ 2)) * 65535),
+			'sat': int((1-((1+temp["axis"][1])/ 2)) * 254)
+			# 'xy': [(1-((1+temp["axis"][0])/ 2)), (1-((1+temp["axis"][1])/ 2))]
 		}
 
-		# print(temp)
+		print(temp)
 		print(command)
 		b.set_light('cal', command)
 
-		time.sleep(1)
+		time.sleep(0.1)
 		i += 1
 
 

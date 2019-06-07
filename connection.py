@@ -54,7 +54,7 @@ class SocketHook(threading.Thread):
 				self.debugPrint("Sending: ", msg)
 				if type(msg) is str:
 					msg = bytearray(msg, 'utf-8')
-				size = struct.pack('>I', len(msg))
+				size = struct.pack('<I', len(msg))
 				# size = (bytes)(len(msg))
 				msg = size + msg
 				self.conn.sendall(msg)
@@ -75,7 +75,7 @@ class SocketHook(threading.Thread):
 		raw_msglen = self.recvall(4)
 		if not raw_msglen:
 			return None
-		msglen = struct.unpack('>I', raw_msglen)[0]
+		msglen = struct.unpack('<I', raw_msglen)[0]
 		# self.debugPrint("Length: ", msglen)
 		return self.recvall(msglen)
 
@@ -83,7 +83,7 @@ class SocketHook(threading.Thread):
 		data = b''
 		while len(data) < n:
 			packet = self.conn.recv(n - len(data))
-			# self.debugPrint("Packet: ", packet)
+			self.debugPrint("Packet: ", packet)
 			if not packet:
 				return None  # EOF
 			data += packet
