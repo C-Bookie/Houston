@@ -4,8 +4,6 @@ import phue
 import time
 import random
 
-import paho.mqtt.client as paho
-
 
 def test1():
     b = phue.Bridge('192.168.1.211')
@@ -33,14 +31,6 @@ def on_connect(client, userdata, flags, rc):
 def on_message(client, userdata, msg):
     print(msg.topic+" "+str(msg.payload))
 
-
-def test2():
-    client = paho.Client()
-    client.on_connect = on_connect
-    client.on_message = on_message
-    client.connect("127.0.0.1", 1883, 60)
-
-    client.loop_forever()
 
 if __name__ == "__main__":
     test2()
