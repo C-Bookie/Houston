@@ -36,13 +36,18 @@ def run():
 	# light_names = b.get_light_objects('name')
 	# light_names['cal'].colormode = 'hs'
 
+	speed = 1
+
 	base = 0
 	last = 0
 	offset = 0
 	button_hot = [False] * joysticks[0].get_numbuttons()
 
+	recorded = []
+	replay = False
 
-	i = 0
+
+	count = 0
 	while True:
 		pygame.event.pump()
 
@@ -53,35 +58,48 @@ def run():
 			"hats": [joysticks[0].get_hat(i) for i in range(joysticks[0].get_numhats())],
 		}
 
+		if replay:
+			temp["axis"] = recorded[count % len(recorded)]
+
 		for i in range(joysticks[0].get_numbuttons()):
 			if temp["buttons"][i]:
 				if not button_hot[i]:
 					button_hot[i] = True
 					if i == 0:
 						base = random.uniform(0, 1)
-					elif i == 1:
+					if i == 1:
 						last = (((1+temp["axis"][0]) / 2)+offset) % 1
+					if i == 4:
+						if len(recorded) > 0:
+							replay = not replay
+					if i == 2:
+						recorded = []
+						replay = False
 			else:
+
 				if button_hot[i]:
 					button_hot[i] = False
 
+		if button_hot[2]:
+			recorded += [temp["axis"]]
+
 		if button_hot[1]:
 			offset = (last-((1+temp["axis"][0]) / 2)) % 1
-		
 
 		command = {
-			'transitiontime': 1,
-			'bri': int((1-((1+temp["axis"][2]) / 2)) * 254),
+			'transitiontime': int(speed*10),
+			'bri': int((1-((1+temp["axis"][3]) / 2)) * 254),
 			'hue': int(((base+(((1+temp["axis"][0]) / 2)+offset)) % 1) * 65535),
 			'sat': int((1-((1+temp["axis"][1]) / 2)) * 254)
 		}
 
+		print(count)
 		print(temp)
 		print(command)
 		b.set_light('cal', command)
 
-		time.sleep(0.1)
-		i += 1
+		time.sleep(speed)
+		count += 1
 
 
 if __name__ == '__main__':
