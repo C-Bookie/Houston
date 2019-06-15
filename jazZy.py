@@ -147,6 +147,11 @@ class MusicPlayer(threading.Thread):
 
 		s.p.terminate()
 
+import numpy as np
+
+
+def sig(x):
+	return 1 / (1 + math.exp(-x))
 
 class LightPlayer(threading.Thread):
 	def __init__(s, path):
@@ -155,20 +160,74 @@ class LightPlayer(threading.Thread):
 		s.b = phue.Bridge('192.168.1.211')
 		s.b.connect()
 
-		chroma, _, sr, _ = pychorus.create_chroma(path)
-		time_time_similarity = similarity_matrix.TimeTimeSimilarityMatrix(chroma, sr)
-		time_lag_similarity = similarity_matrix.TimeLagSimilarityMatrix(chroma, sr)
+		# chroma, _, sr, _ = pychorus.create_chroma(path)
+		# time_time_similarity = similarity_matrix.TimeTimeSimilarityMatrix(chroma, sr)
+		# time_lag_similarity = similarity_matrix.TimeLagSimilarityMatrix(chroma, sr)
+		#
+		# time_time_similarity.display()
+		# time_lag_similarity.display()
 
-		f = wave.open(path, 'r')
-		track_length = f.getnframes() / f.getframerate()
+		# f = wave.open(path, 'r')
+		# track_length = f.getnframes() / f.getframerate()
 
 		s.map = []
-		for i in range(int(track_length*10)):
-			slice = []
-			slice += [0.5]
-			slice += [sum(time_time_similarity.matrix[i])/len(time_time_similarity.matrix[i])]
-			slice += [sum(time_lag_similarity.matrix[i])/len(time_lag_similarity.matrix[i])]
-			s.map += [slice]
+		# for i in range(int(track_length*10)):
+		# 	j = int(track_length*10 / len(time_time_similarity.matrix))
+		# 	slice = []
+		# 	slice += [0.5]
+		# 	# slice += [sum(time_time_similarity.matrix[j])/len(time_time_similarity.matrix[j])]
+		# 	# slice += [sum(time_lag_similarity.matrix[j])/len(time_lag_similarity.matrix[j])]
+		# 	slice += [time_time_similarity.matrix[j][10]]
+		# 	slice += [time_lag_similarity.matrix[j][10]]
+		# 	s.map += [slice]
+
+		wr = wave.open(path, 'r')
+
+		fr = 1
+		sz = wr.getframerate() // fr  # Read and process 1/fr second at a time.
+		# A larger number for fr means less reverb.
+		c = int(wr.getnframes() / sz)  # count of the whole file
+		for num in range(c):
+			da = np.fromstring(wr.readframes(sz), dtype=np.int16)
+			left, right = da[0::2], da[1::2]  # left and right channel
+			# lf, rf = np.fft.rfftfreq(left), np.fft.rfftfreq(right)
+
+			w = np.fft.rfft(left)
+			freqs = np.fft.rfftfreq(len(w))
+			track_length = len(left)
+
+			# imax = index of first peak in w
+			imax = np.argmax(np.abs(w))
+			fs = freqs[imax]
+
+			freq = imax * fs / track_length
+
+			l = len(freqs)
+
+			# freqs = [sig(n) for n in freqs]
+
+			# *5/6 cuts pink from the rainbow
+			x = sum([(freqs[i] * math.sin((i/l) * (5/6)))/l for i in range(l)])
+			y = sum([(freqs[i] * math.cos((i/l) * (5/6)))/l for i in range(l)])
+
+			hue = (math.atan2(x, y) + (2 * math.pi if x < 0 else 0)) / (2 * math.pi)
+			sat = math.sqrt(x**2 + y**2)
+			bri = sum(freqs)/l
+
+
+			if c%1==0:
+				fig, ax1 = plt.subplots()
+
+				ax1.plot(range(len(w)), w)
+
+				ax2 = ax1.twinx()
+				ax2.plot(range(l), freqs)
+
+				fig.legend(['w', 'f'])
+				fig.tight_layout()
+				fig.show()
+
+				s.map += [[hue, sat, bri]]
 
 
 	def run(s):
@@ -178,15 +237,24 @@ class LightPlayer(threading.Thread):
 		for slice in s.map:
 			command = {
 				'transitiontime': 1,
-				'bri': int(slice[0] * 254),
-				'hue': int(slice[1] * 65535),
-				'sat': int(slice[2] * 254)
+				'hue': int(slice[0] * 65535),
+				'sat': int(slice[1] * 254),
+				'bri': int(slice[2] * 254)
 			}
+			print(command)
 			s.b.set_light('cal', command)
 			i+=1
 			time.sleep(start + (i/10) - time.time())
 
 
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+from matplotlib import cm
+
+
 if __name__ == '__main__':
 	# run()
 	test()
+
+
+
