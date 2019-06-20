@@ -38,11 +38,11 @@ def test1():
 		fig.show()
 
 def gen_wave(frequency, length, sample_rate):
-	return np.array([math.cos(math.tau * frequency * i / sample_rate) for i in range(sample_rate * length)])
+	return np.array([math.cos(math.pi * 2 * frequency * i / sample_rate) for i in range(sample_rate * length)])
 
 def test2():
 	sample_rate = 100
-	length = 2
+	length = 1
 	points = length * sample_rate
 
 	wave1 = gen_wave(1, length, sample_rate)
@@ -50,6 +50,15 @@ def test2():
 	wave3 = (wave1 + wave2) / 2
 
 	graph1 = np.fft.rfft(wave1) / sample_rate
+
+
+	sum = 0
+	i = 0
+	for n in graph1:
+		sum += i * n
+		i += 1
+	avg = 1 - (sum / i)
+	print(avg)
 
 	fig, ax1 = plt.subplots()
 
