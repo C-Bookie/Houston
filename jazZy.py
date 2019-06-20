@@ -139,8 +139,8 @@ class MusicPlayer(threading.Thread):
 import numpy as np
 
 
-def sig(x):
-	return 1 / (1 + math.exp(-x))
+def sigmoid(x):
+	return 1 / (1 + np.exp(-x))
 
 class LightPlayer(threading.Thread):
 	def __init__(s, path):
@@ -171,19 +171,23 @@ class LightPlayer(threading.Thread):
 		# 	s.map += [slice]
 
 		wr = wave.open(path, 'r')
+		music = wave.open(path, 'r')
 
-		fr = 10
-		sz = wr.getframerate() // fr  # Read and process 1/fr second at a time.
+		frame_rate = 10
+		sample_size = music.getframerate() // frame_rate  # Read and process 1/fr second at a time.
 		# A larger number for fr means less reverb.
-		c = int(wr.getnframes() / sz)  # count of the whole file
-		for num in range(c):
-			da = np.fromstring(wr.readframes(sz), dtype=np.int16)
+		number_of_slices = int(music.getnframes() / sample_size)  # count of the whole file
+
+		for slice_number in range(number_of_slices):
+			da = np.fromstring(music.readframes(sample_size), dtype=np.int16)
 			left, right = da[0::2], da[1::2]  # left and right channel
 			# lf, rf = np.fft.rfftfreq(left), np.fft.rfftfreq(right)
 
-			a = left
-			# a = np.fft.fft(left)
-			b = np.fft.rfft(left)
+			sample = left
+			# sample /= 1500
+
+			graph = np.abs(np.fft.rfft(sample).real)
+			a = sigmoid(graph) * 2 - 1
 
 
 			# w = np.fft.rfft(left)
@@ -205,26 +209,50 @@ class LightPlayer(threading.Thread):
 			# 	y += [freq * math.cos(theta)]
 			# x = sum(x)/m2m
 			# y = sum(x)/m2m
-			#
-			# hue = (math.atan2(x, y) + (2 * math.pi if x < 0 else 0)) / (2 * math.pi)
-			# sat = math.sqrt(x**2 + y**2)
-			# bri = sum(freqs)/l
 
-			if c%1==0:
+			min = 0
+			max = len(graph1)
+
+			l = max - min
+
+			graph1 = graph1[min:max]
+
+			points_x = []
+			points_y = []
+			for i in range(l):
+				freq = graph1[i]
+				theta = i / l
+				theta *= (5 / 6)  # *5/6 cuts pink from the rainbow
+				theta *= math.pi * 2
+				points_x += [freq * math.sin(theta)]
+				points_y += [freq * math.cos(theta)]
+			# freqs = np.fft.fftfreq(len(graph1))
+
+			x = np.sum(points_x) / len(points_x)
+			y = np.sum(points_y) / len(points_y)
+			z = math.sqrt(x * x + y * y)
+			print(x, y, z)
+
+			hue = (math.atan2(x, y) + (2 * math.pi if x < 0 else 0)) / (2 * math.pi)
+			sat = math.sqrt(x**2 + y**2)
+			# bri = sum(freqs)/l
+			bri = z
+
+			if slice_number%1 == 0:
 				fig, ax1 = plt.subplots()
 
 				ax1.plot(range(len(a)), a, color='m')
 				# ax1.plot(range(len(b)), b, color='g')
 
-				ax2 = ax1.twinx()
-				ax2.plot(range(len(b)), b, color='g')
+				# ax2 = ax1.twinx()
+				# ax2.plot(range(len(b)), b, color='g')
 
-				fig.legend(['w', 'f'])
-				fig.tight_layout()
+				# fig.legend(['w', 'f'])
+				# fig.tight_layout()
 				fig.show()
 				pass
 
-			# s.map += [[hue, sat, bri]]
+			s.map += [[hue, sat, bri]]
 
 	def run(s):
 		start = time.time()
@@ -245,16 +273,13 @@ class LightPlayer(threading.Thread):
 
 
 def test():
-	path = "./music/in_game_music_1.wav"
-	# path = "./music/in_game_music_2.wav"
-	# path = "./music/main_menu_music.wav"
-	# path = "./music/loading.wav"
+	path = "./audio/toto_africa.wav"
 
 	mPlayer = MusicPlayer(path)
 	lPlayer = LightPlayer(path)
 
-	# mPlayer.start()
-	# lPlayer.run()
+	mPlayer.start()
+	lPlayer.run()
 
 
 if __name__ == '__main__':
