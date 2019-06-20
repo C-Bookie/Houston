@@ -11,7 +11,12 @@ import json
 import pyaudio as pyaudio
 import pygame
 
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+from matplotlib import cm
 
+import pychorus
+from pychorus import similarity_matrix
 
 deadzone = 0.25
 
@@ -106,22 +111,6 @@ def run():
 		time.sleep(speed)
 		count += 1
 
-import pychorus
-from pychorus import similarity_matrix
-
-
-def test():
-	path = "./music/in_game_music_1.wav"
-	# path = "./music/in_game_music_2.wav"
-	# path = "./music/main_menu_music.wav"
-	# path = "./music/loading.wav"
-
-	mPlayer = MusicPlayer(path)
-	lPlayer = LightPlayer(path)
-
-	mPlayer.start()
-	lPlayer.run()
-
 
 class MusicPlayer(threading.Thread):
 	def __init__(s, path):
@@ -183,7 +172,7 @@ class LightPlayer(threading.Thread):
 
 		wr = wave.open(path, 'r')
 
-		fr = 1
+		fr = 10
 		sz = wr.getframerate() // fr  # Read and process 1/fr second at a time.
 		# A larger number for fr means less reverb.
 		c = int(wr.getnframes() / sz)  # count of the whole file
@@ -192,43 +181,50 @@ class LightPlayer(threading.Thread):
 			left, right = da[0::2], da[1::2]  # left and right channel
 			# lf, rf = np.fft.rfftfreq(left), np.fft.rfftfreq(right)
 
-			w = np.fft.rfft(left)
-			freqs = np.fft.rfftfreq(len(w))
-			track_length = len(left)
+			a = left
+			# a = np.fft.fft(left)
+			b = np.fft.rfft(left)
 
-			# imax = index of first peak in w
-			imax = np.argmax(np.abs(w))
-			fs = freqs[imax]
 
-			freq = imax * fs / track_length
+			# w = np.fft.rfft(left)
+			# freqs = np.fft.rfftfreq(len(w))
+			# track_length = len(left)
+			#
+			# l = len(freqs)
 
-			l = len(freqs)
-
-			# freqs = [sig(n) for n in freqs]
-
-			# *5/6 cuts pink from the rainbow
-			x = sum([(freqs[i] * math.sin((i/l) * (5/6)))/l for i in range(l)])
-			y = sum([(freqs[i] * math.cos((i/l) * (5/6)))/l for i in range(l)])
-
-			hue = (math.atan2(x, y) + (2 * math.pi if x < 0 else 0)) / (2 * math.pi)
-			sat = math.sqrt(x**2 + y**2)
-			bri = sum(freqs)/l
-
+			# min = 20
+			# max = 20000
+			# m2m = max - min  # min to max
+			#
+			# x = []
+			# y = []
+			# for i in range(m2m):
+			# 	freq = freqs[min + i]
+			# 	theta = (i/m2m) * (5/6)  # *5/6 cuts pink from the rainbow
+			# 	x += [freq * math.sin(theta)]
+			# 	y += [freq * math.cos(theta)]
+			# x = sum(x)/m2m
+			# y = sum(x)/m2m
+			#
+			# hue = (math.atan2(x, y) + (2 * math.pi if x < 0 else 0)) / (2 * math.pi)
+			# sat = math.sqrt(x**2 + y**2)
+			# bri = sum(freqs)/l
 
 			if c%1==0:
 				fig, ax1 = plt.subplots()
 
-				ax1.plot(range(len(w)), w)
+				ax1.plot(range(len(a)), a, color='m')
+				# ax1.plot(range(len(b)), b, color='g')
 
 				ax2 = ax1.twinx()
-				ax2.plot(range(l), freqs)
+				ax2.plot(range(len(b)), b, color='g')
 
 				fig.legend(['w', 'f'])
 				fig.tight_layout()
 				fig.show()
+				pass
 
-				s.map += [[hue, sat, bri]]
-
+			# s.map += [[hue, sat, bri]]
 
 	def run(s):
 		start = time.time()
@@ -247,9 +243,18 @@ class LightPlayer(threading.Thread):
 			time.sleep(start + (i/10) - time.time())
 
 
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
-from matplotlib import cm
+
+def test():
+	path = "./music/in_game_music_1.wav"
+	# path = "./music/in_game_music_2.wav"
+	# path = "./music/main_menu_music.wav"
+	# path = "./music/loading.wav"
+
+	mPlayer = MusicPlayer(path)
+	lPlayer = LightPlayer(path)
+
+	# mPlayer.start()
+	# lPlayer.run()
 
 
 if __name__ == '__main__':
