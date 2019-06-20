@@ -75,16 +75,17 @@ def test2():
 	# 	# lf, rf = np.fft.rfftfreq(left), np.fft.rfftfreq(right)
 	#
 	# 	graph1 = np.fft.rfft(left)
-	#
-	# 	graph1 += 1
-	#
-	# 	sum = 0
-	# 	i = 0
-	# 	for n in graph1:
-	# 		sum += i * n
-	# 		i += 1
-	# 	avg = 1 - (sum / i)
-	# 	print(avg)
+
+		graph1 += 1
+		graph1 /= 2
+
+		sum = 0
+		i = 0
+		for n in graph1:
+			sum += i * n
+			i += 1
+		avg = 1 - (sum / i)
+		print(avg)
 
 		# min = 20
 		# max = 20000
@@ -112,7 +113,7 @@ def test2():
 			theta = math.pi * (i/l) * (5/6)  # *5/6 cuts pink from the rainbow
 			points_x += [freq * math.sin(theta)]
 			points_y += [freq * math.cos(theta)]
-		freqs = np.fft.fftfreq(len(graph1))
+		freqs = np.fft.fftfreq(len(graph1), graph1)
 
 		x = 0
 		for point in points_x:
@@ -131,7 +132,8 @@ def test2():
 		# ax1.plot(range(points), wave1, color='b')
 		# ax1.plot(range(points), wave2, color='g')
 		# ax1.plot(range(points), wave3, color='b')
-		ax1.plot(points_x, points_y, color='b')
+		# ax1.plot(points_x, points_y, color='b')
+		ax1.plot(range(len(freqs)), freqs, color='b')
 
 		ax2 = ax1.twinx()
 		ax2.plot(range(len(graph1)), graph1, color='g')
