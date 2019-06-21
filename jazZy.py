@@ -143,133 +143,63 @@ class LightPlayer(threading.Thread):
 		s.b.connect()
 		s.map = []
 
-	def generate(s, path):
-		music = wave.open(path, 'r')
+	def gen_slice(s, sample, frame_rate):
+		scaler = 10**4.9
 
-		frame_rate = 10
-		sample_size = music.getframerate() // frame_rate  # Read and process 1/fr second at a time.
-		# A larger number for fr means less reverb.
-		number_of_slices = int(music.getnframes() / sample_size)  # count of the whole file
+		limit = scaler / frame_rate
+		sample = sample / limit
 
-		for _slice_number in range(number_of_slices):
-			da = np.fromstring(music.readframes(sample_size), dtype=np.int16)
-			left, right = da[0::2], da[1::2]  # left and right channel
-			# lf, rf = np.fft.rfftfreq(left), np.fft.rfftfreq(right)
+		graph = np.abs(np.fft.rfft(sample).real) #** (1 / co)
+		graph1 = sigmoid(graph) * 2 - 1
 
-			sample = left
+		min = 0
+		# max = int(limit)
+		max = int(len(graph1)/1.5)
 
-			co = 3#math.e
-			scaler = 100000
+		l = max - min
+		graph1 = graph1[min:max]
 
-			limit = scaler / frame_rate
-			sample = sample / limit
+		points_x = []
+		points_y = []
+		for i in range(l):
+			freq = graph1[i]
+			theta = i / l
+			theta *= 0.96  # cuts pink from the rainbow
+			theta *= math.pi * 2
+			points_x += [freq * math.sin(theta)]
+			points_y += [freq * math.cos(theta)]
 
-			graph = np.abs(np.fft.rfft(sample).real) ** (1/co)
-			graph1 = sigmoid(graph) * 2 - 1
+		x = np.sum(points_x) / len(points_x)
+		y = np.sum(points_y) / len(points_y)
 
-			min = 10
-			# max = int(limit)
-			max = len(graph1)
+		hue = ((math.atan2(x, y) + (2 * math.pi if x < 0 else 0)) / (2 * math.pi)) ** (1/2)
+		sat = math.sqrt((x * x) + (y * y)) ** (1 / 3)
+		bri = sum(sigmoid(abs(sample)) * 2 - 1) / len(sample)
 
-			l = max - min
-			graph1 = graph1[min:max]
+		# if _slice_number % 400 == 0:
+		# 	print(hue, sat, bri)
+		#
+		# 	fig, ax1 = plt.subplots()
+		# 	ax1.plot(range(len(graph)), graph, color='b')
+		# 	fig.show()
+		#
+		# 	fig, ax2 = plt.subplots()
+		# 	ax2.plot(range(len(graph1)), graph1, color='b')
+		# 	fig.show()
+		#
+		# 	fig, ax3 = plt.subplots()
+		# 	ax3.plot(points_x, points_y, color='b')
+		# 	ax3.scatter(0, 0)
+		# 	ax3.scatter(x, y)
+		# 	fig.show()
 
-			points_x = []
-			points_y = []
-			for i in range(l):
-				freq = graph1[i]
-				theta = i / l
-				# theta *= (5/6)  # *5/6 cuts pink from the rainbow
-				theta *= math.pi * 2
-				points_x += [freq * math.sin(theta)]
-				points_y += [freq * math.cos(theta)]
+		# # ax2 = ax1.twinx()
+		# fig, ax2 = plt.subplots()
+		# ax2.plot(range(len(sample)), sample, color='g')
+		# # ax2.plot(range(len(freqs)), freqs, color='b')
+		# fig.show()
 
-			x = np.sum(points_x) / len(points_x)
-			y = np.sum(points_y) / len(points_y)
-
-			hue = ((math.atan2(x, y) + (2 * math.pi if x < 0 else 0)) / (2 * math.pi))# ** (1/co)
-			sat = math.sqrt((x * x) + (y * y)) ** (1/co)
-			bri = sum(sigmoid(abs(sample)) * 2 - 1) / len(sample)
-
-			if _slice_number%400 == 0:
-				print(hue, sat, bri)
-
-				fig, ax1 = plt.subplots()
-				ax1.plot(range(len(graph)), graph, color='b')
-				fig.show()
-
-				fig, ax2 = plt.subplots()
-				ax2.plot(range(len(graph1)), graph1, color='b')
-				fig.show()
-
-				fig, ax3 = plt.subplots()
-				ax3.plot(points_x, points_y, color='b')
-				ax3.scatter(0, 0)
-				ax3.scatter(x, y)
-				fig.show()
-
-				# # ax2 = ax1.twinx()
-				# fig, ax2 = plt.subplots()
-				# ax2.plot(range(len(sample)), sample, color='g')
-				# # ax2.plot(range(len(freqs)), freqs, color='b')
-				# fig.show()
-
-			s.map += [[hue, sat, bri]]
-
-			# if _sli ce_number == 10:
-			# 	break
-		np.save('map.npy', s.map)
-
-	def load(s):
-		s.map = np.load('map.npy')
-
-	def run(s):
-		start = time.time()
-
-		i = 0
-		for slice in s.map:
-			command = {
-				'transitiontime': 1,
-				'hue': int(slice[0] * 65535),
-				'sat': int(slice[1] * 254),
-				'bri': int(slice[2] * 254)
-			}
-			print(command)
-			s.b.set_light('cal', command)
-			i+=1
-			wait = start + (i/10) - time.time()
-			if wait > 0:
-				time.sleep(wait)
-
-
-class LivePlayer(threading.Thread):
-	def __init__(s, path):
-		threading.Thread.__init__(s)
-		s.b = phue.Bridge('192.168.1.211')
-		s.b.connect()
-		s.map = []
-
-		s.path = path
-		s.f = wave.open(path, 'r')
-		s.chunk = 1024
-		s.p = pyaudio.PyAudio()
-
-	def run(s):
-		stream = s.p.open(format=s.p.get_format_from_width(s.f.getsampwidth()),
-						  channels=s.f.getnchannels(),
-						  rate=s.f.getframerate(),
-						  output=True)
-
-		while True:
-			data = s.f.readframes(s.chunk)
-			stream.write(data)
-			if not data:
-				break
-
-		stream.stop_stream()
-		stream.close()
-
-		s.p.terminate()
+		return (hue, sat, bri)
 
 	def generate(s, path):
 		music = wave.open(path, 'r')
@@ -282,70 +212,9 @@ class LivePlayer(threading.Thread):
 		for _slice_number in range(number_of_slices):
 			da = np.fromstring(music.readframes(sample_size), dtype=np.int16)
 			left, right = da[0::2], da[1::2]  # left and right channel
-			# lf, rf = np.fft.rfftfreq(left), np.fft.rfftfreq(right)
-
+			# sample = (left + right) / 2
 			sample = left
-
-			co = 3#math.e
-			scaler = 100000
-
-			limit = scaler / frame_rate
-			sample = sample / limit
-
-			graph = np.abs(np.fft.rfft(sample).real) ** (1/co)
-			graph1 = sigmoid(graph) * 2 - 1
-
-			min = 10
-			# max = int(limit)
-			max = len(graph1)
-
-			l = max - min
-			graph1 = graph1[min:max]
-
-			points_x = []
-			points_y = []
-			for i in range(l):
-				freq = graph1[i]
-				theta = i / l
-				# theta *= (5/6)  # *5/6 cuts pink from the rainbow
-				theta *= math.pi * 2
-				points_x += [freq * math.sin(theta)]
-				points_y += [freq * math.cos(theta)]
-
-			x = np.sum(points_x) / len(points_x)
-			y = np.sum(points_y) / len(points_y)
-
-			hue = ((math.atan2(x, y) + (2 * math.pi if x < 0 else 0)) / (2 * math.pi))# ** (1/co)
-			sat = math.sqrt((x * x) + (y * y)) ** (1/co)
-			bri = sum(sigmoid(abs(sample)) * 2 - 1) / len(sample)
-
-			if _slice_number%400 == 0:
-				print(hue, sat, bri)
-
-				fig, ax1 = plt.subplots()
-				ax1.plot(range(len(graph)), graph, color='b')
-				fig.show()
-
-				fig, ax2 = plt.subplots()
-				ax2.plot(range(len(graph1)), graph1, color='b')
-				fig.show()
-
-				fig, ax3 = plt.subplots()
-				ax3.plot(points_x, points_y, color='b')
-				ax3.scatter(0, 0)
-				ax3.scatter(x, y)
-				fig.show()
-
-				# # ax2 = ax1.twinx()
-				# fig, ax2 = plt.subplots()
-				# ax2.plot(range(len(sample)), sample, color='g')
-				# # ax2.plot(range(len(freqs)), freqs, color='b')
-				# fig.show()
-
-			s.map += [[hue, sat, bri]]
-
-			# if _sli ce_number == 10:
-			# 	break
+			s.map += [s.gen_slice(sample, frame_rate)]
 		np.save('map.npy', s.map)
 
 	def load(s):
@@ -395,7 +264,7 @@ def test2():
 if __name__ == '__main__':
 	# run()
 	test1()
-	# test2()
+	test2()
 
 
 
