@@ -25,89 +25,76 @@ def correctJoy(n):
 		return -n**2
 	return n**2
 
-def run():
-	b = phue.Bridge('192.168.1.211')
-	b.connect()
-	print(b.get_api())
+class ButtonManager():
+	def __init__(s):
+		pygame.init()
+		# surface = pygame.display.set_mode((400, 300), 0, 32)
 
-	pygame.init()
-	# surface = pygame.display.set_mode((400, 300), 0, 32)
+		pygame.joystick.init()
+		s.joysticks = []
+		for i in range(pygame.joystick.get_count()):
+			joystick = pygame.joystick.Joystick(i)
+			joystick.init()
+			print("Initialised: ", joystick.get_name())
+			s.joysticks += [joystick]
 
-	pygame.joystick.init()
-	joysticks = []
-	for i in range(pygame.joystick.get_count()):
-		joystick = pygame.joystick.Joystick(i)
-		joystick.init()
-		print("Initialised: ", joystick.get_name())
-		joysticks += [joystick]
+		s.base = 0
+		s.last = 0
+		s.offset = 0
+		s.button_hot = [False] * s.joysticks[0].get_numbuttons()
 
-	# light_names = b.get_light_objects('name')
-	# light_names['cal'].colormode = 'hs'
-
-	speed = 1
-
-	base = 0
-	last = 0
-	offset = 0
-	button_hot = [False] * joysticks[0].get_numbuttons()
-
-	recorded = []
-	replay = False
+		s.recorded = []
+		s.replay = False
 
 
-	count = 0
-	while True:
+		s.count = 0
+
+
+	def update(s):
 		pygame.event.pump()
 
-		temp = {
-			"axis": [joysticks[0].get_axis(i) for i in range(joysticks[0].get_numaxes())],
-			"balls": [joysticks[0].get_ball(i) for i in range(joysticks[0].get_numballs())],
-			"buttons": [joysticks[0].get_button(i) for i in range(joysticks[0].get_numbuttons())],
-			"hats": [joysticks[0].get_hat(i) for i in range(joysticks[0].get_numhats())],
+		s.temp = {
+			"axis": [s.joysticks[0].get_axis(i) for i in range(s.joysticks[0].get_numaxes())],  # todo add correctJoy()
+			"balls": [s.joysticks[0].get_ball(i) for i in range(s.joysticks[0].get_numballs())],
+			"buttons": [s.joysticks[0].get_button(i) for i in range(s.joysticks[0].get_numbuttons())],
+			"hats": [s.joysticks[0].get_hat(i) for i in range(s.joysticks[0].get_numhats())],
 		}
 
-		if replay:
-			temp["axis"] = recorded[count % len(recorded)]
+		if s.replay:
+			s.temp["axis"] = s.recorded[s.count % len(s.recorded)]
 
-		for i in range(joysticks[0].get_numbuttons()):
-			if temp["buttons"][i]:
-				if not button_hot[i]:
-					button_hot[i] = True
+		for i in range(s.joysticks[0].get_numbuttons()):
+			if s.temp["buttons"][i]:
+				if not s.button_hot[i]:
+					s.button_hot[i] = True
 					if i == 0:
-						base = random.uniform(0, 1)
+						s.base = random.uniform(0, 1)
 					if i == 1:
-						last = (((1+temp["axis"][0]) / 2)+offset) % 1
+						s.last = (((1+s.temp["axis"][0]) / 2)+s.offset) % 1
 					if i == 4:
-						if len(recorded) > 0:
-							replay = not replay
+						if len(s.recorded) > 0:
+							s.replay = not s.replay
 					if i == 2:
-						recorded = []
-						replay = False
+						s.recorded = []
+						s.replay = False
 			else:
 
-				if button_hot[i]:
-					button_hot[i] = False
+				if s.button_hot[i]:
+					s.button_hot[i] = False
 
-		if button_hot[2]:
-			recorded += [temp["axis"]]
+		if s.button_hot[2]:
+			s.recorded += [s.temp["axis"]]
 
-		if button_hot[1]:
-			offset = (last-((1+temp["axis"][0]) / 2)) % 1
+		if s.button_hot[1]:
+			s.offset = (s.last-((1+s.temp["axis"][0]) / 2)) % 1
 
-		command = {
-			'transitiontime': int(speed*10),
-			'bri': int((1-((1+temp["axis"][3]) / 2)) * 254),
-			'hue': int(((base+(((1+temp["axis"][0]) / 2)+offset)) % 1) * 65535),
-			'sat': int((1-((1+temp["axis"][1]) / 2)) * 254)
-		}
-
-		print(count)
-		print(temp)
-		print(command)
-		b.set_light('cal', command)
-
-		time.sleep(speed)
-		count += 1
+		# command = (
+		# 	1-s.temp["axis"][3],
+		# 	(s.base+(((1+s.temp["axis"][0]) / 2)+s.offset)) % 1,
+		# 	1-s.temp["axis"][1]
+		# )
+		s.count += 1
+		return s.temp["axis"]
 
 
 class MusicPlayer(threading.Thread):
@@ -117,9 +104,12 @@ class MusicPlayer(threading.Thread):
 		s.chunk = 1024
 		s.p = pyaudio.PyAudio()
 		s.LIVE = True
+		s.JOY = True
 		if s.LIVE:
 			s.lf = wave.open(path, 'r')
 			s.lp = LivePlayer()
+			if s.JOY:
+				s.bm = ButtonManager()
 
 	def run(s):
 		stream = s.p.open(format=s.p.get_format_from_width(s.mf.getsampwidth()),
@@ -143,6 +133,15 @@ class MusicPlayer(threading.Thread):
 					s.lp.queue.join()
 					s.lp.send_map()
 					ldata = s.lf.readframes(sample_size)
+					if s.JOY:
+						controls = np.array(s.bm.update())
+						# controls **= 2
+						controls *= 3
+						print(controls)
+						s.lp.light_player.hueCo = 1 / (2 + controls[0])
+						s.lp.light_player.satCo = 1 / (3 + (1-controls[1]))
+						s.lp.light_player.velocity = 4.9 + (controls[2])
+						s.lp.light_player.curve = (1 + controls[3])
 					s.lp.queue.put(ldata)
 					li += 1
 			mdata = s.mf.readframes(s.chunk)
@@ -191,18 +190,26 @@ class LightPlayer(threading.Thread):
 		s.b.connect()
 		s.map = []
 
+		s.velocity = 4.9
+		s.curve = 1
+		s.cap = 1.5
+		s.cutoff = 0.96
+		s.hueCo = (1 / 2)
+		s.satCo = (1 / 3)
+
 	def gen_slice(s, sample, frame_rate):
-		scaler = 10**4.9
+		scaler = 10**s.velocity
 
 		limit = scaler / frame_rate
 		sample = sample / limit
 
 		graph = np.abs(np.fft.rfft(sample).real) #** (1 / co)
 		graph1 = sigmoid(graph) * 2 - 1
+		graph1 **= s.curve
 
 		min = 0
 		# max = int(limit)
-		max = int(len(graph1)/1.5)
+		max = int(len(graph1)/s.cap)
 
 		l = max - min
 		graph1 = graph1[min:max]
@@ -212,7 +219,7 @@ class LightPlayer(threading.Thread):
 		for i in range(l):
 			freq = graph1[i]
 			theta = i / l
-			theta *= 0.96  # cuts pink from the rainbow
+			theta *= s.cutoff  # cuts pink from the rainbow
 			theta *= math.pi * 2
 			points_x += [freq * math.sin(theta)]
 			points_y += [freq * math.cos(theta)]
@@ -220,8 +227,8 @@ class LightPlayer(threading.Thread):
 		x = np.sum(points_x) / len(points_x)
 		y = np.sum(points_y) / len(points_y)
 
-		hue = ((math.atan2(x, y) + (2 * math.pi if x < 0 else 0)) / (2 * math.pi)) ** (1/2)
-		sat = math.sqrt((x * x) + (y * y)) ** (1 / 3)
+		hue = ((math.atan2(x, y) + (2 * math.pi if x < 0 else 0)) / (2 * math.pi)) ** s.hueCo
+		sat = math.sqrt((x * x) + (y * y)) ** s.satCo
 		bri = sum(sigmoid(abs(sample)) * 2 - 1) / len(sample)
 
 		if 0:
@@ -276,7 +283,7 @@ class LightPlayer(threading.Thread):
 			'bri': int(map[2] * 254)
 		}
 		s.b.set_light('cal', command)
-		print(command)
+		# print(command)
 
 	def run(s):
 		start = time.time()
