@@ -137,7 +137,7 @@ class MusicPlayer(threading.Thread):
 						controls = np.array(s.bm.update())
 						# controls **= 2
 						controls *= 3
-						print(controls)
+						# print(controls)
 						s.lp.light_player.hueCo = 1 / (2 + controls[0])
 						s.lp.light_player.satCo = 1 / (3 + (1-controls[1]))
 						s.lp.light_player.velocity = 4.9 + (controls[2])
@@ -297,8 +297,7 @@ class LightPlayer(threading.Thread):
 				time.sleep(wait)
 
 
-def test1():
-	path = "./audio/mass.wav"
+def test1(path):
 	lPlayer = LightPlayer()
 	lPlayer.generate(path)
 
@@ -309,8 +308,7 @@ def test1():
 	fig.show()
 
 
-def test2():
-	path = "./audio/mass.wav"
+def test2(path):
 	mPlayer = MusicPlayer(path)
 	lPlayer = LightPlayer()
 	lPlayer.load()
@@ -319,17 +317,17 @@ def test2():
 	lPlayer.run()
 
 
-def test3():
-	path = "./audio/mass.wav"
+def test3(path):
 	mPlayer = MusicPlayer(path)
 	mPlayer.run()
 
 
 if __name__ == '__main__':
-	# run()
-	# test1()
-	# test2()
-	test3()
+	# path = "./audio/mass.wav"
+	path = "./audio/kuzz.wav"	# run()
+	test1(path)
+	# test2(path)
+	# test3(path)
 
 
 
