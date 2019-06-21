@@ -1,6 +1,7 @@
 #testing phue and mqtt for motion sensing lights
 import threading
 import wave
+from queue import Queue
 
 import math
 import phue
@@ -115,6 +116,7 @@ class MusicPlayer(threading.Thread):
 		s.f = wave.open(path, 'r')
 		s.chunk = 1024
 		s.p = pyaudio.PyAudio()
+		s.lp = LivePlayer(s.f.getframerate())
 
 	def run(s):
 		stream = s.p.open(format=s.p.get_format_from_width(s.f.getsampwidth()),
@@ -133,8 +135,56 @@ class MusicPlayer(threading.Thread):
 
 		s.p.terminate()
 
+
+	# def run(s):
+	# 	s.lp.start()
+	#
+	# 	stream = s.p.open(format=s.p.get_format_from_width(s.f.getsampwidth()),
+	# 					channels=s.f.getnchannels(),
+	# 					rate=s.f.getframerate(),
+	# 					output=True)
+	#
+	# 	data = s.f.readframes(s.chunk)
+	# 	s.lp.queue.put(data)
+	# 	while True:
+	# 		next = s.f.readframes(s.chunk)
+	# 		s.lp.queue.join()
+	# 		s.lp.send_map()
+	# 		if not next:
+	# 			s.lp.queue.put(data)
+	# 		stream.write(data)
+	# 		data = next
+	# 		if not data:
+	# 			break
+	#
+	# 	stream.stop_stream()
+	# 	stream.close()
+	#
+	# 	s.p.terminate()
+
 def sigmoid(x):
 	return 1 / (1 + np.exp(-x))
+
+class LivePlayer(threading.Thread):
+	def __init__(s, fr):
+		threading.Thread.__init__(s)
+		s.fr = fr
+		s.map = (0, 0, 0)
+		s.queue = Queue()
+		s.light_player = LightPlayer()
+
+	def run(s):
+		while True:
+			da = np.fromstring(s.queue.get(), dtype=np.int16)
+			left, right = da[0::2], da[1::2]  # left and right channel
+			sample = left
+			s.map = s.light_player.gen_slice(sample, s.fr)
+			s.queue.task_done()
+
+	def send_map(s):
+		s.light_player.send_map(s.map)
+
+
 
 class LightPlayer(threading.Thread):
 	def __init__(s):
@@ -220,19 +270,22 @@ class LightPlayer(threading.Thread):
 	def load(s):
 		s.map = np.load('map.npy')
 
+	def send_map(s, map):
+		command = {
+			'transitiontime': 1,
+			'hue': int(map[0] * 65535),
+			'sat': int(map[1] * 254),
+			'bri': int(map[2] * 254)
+		}
+		print(command)
+		s.b.set_light('cal', command)
+
 	def run(s):
 		start = time.time()
 
 		i = 0
 		for slice in s.map:
-			command = {
-				'transitiontime': 1,
-				'hue': int(slice[0] * 65535),
-				'sat': int(slice[1] * 254),
-				'bri': int(slice[2] * 254)
-			}
-			print(command)
-			s.b.set_light('cal', command)
+			s.send_map(slice)
 			i+=1
 			wait = start + (i/10) - time.time()
 			if wait > 0:
@@ -261,10 +314,17 @@ def test2():
 	lPlayer.run()
 
 
+def test3():
+	path = "./audio/mass.wav"
+	mPlayer = MusicPlayer(path)
+	mPlayer.run()
+
+
 if __name__ == '__main__':
 	# run()
-	test1()
+	# test1()
 	test2()
+	# test3()
 
 
 
