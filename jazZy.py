@@ -113,73 +113,71 @@ def run():
 class MusicPlayer(threading.Thread):
 	def __init__(s, path):
 		threading.Thread.__init__(s)
-		s.f = wave.open(path, 'r')
+		s.mf = wave.open(path, 'r')
 		s.chunk = 1024
 		s.p = pyaudio.PyAudio()
-		s.lp = LivePlayer(s.f.getframerate())
+		s.LIVE = True
+		if s.LIVE:
+			s.lf = wave.open(path, 'r')
+			s.lp = LivePlayer()
 
 	def run(s):
-		stream = s.p.open(format=s.p.get_format_from_width(s.f.getsampwidth()),
-						channels=s.f.getnchannels(),
-						rate=s.f.getframerate(),
+		stream = s.p.open(format=s.p.get_format_from_width(s.mf.getsampwidth()),
+						channels=s.mf.getnchannels(),
+						rate=s.mf.getframerate(),
 						output=True)
 
+		mi = 0
+		if s.LIVE:
+			frame_rate = 10
+			sample_size = s.lf.getframerate() // frame_rate
+			number_of_slices = int(s.lf.getnframes() / sample_size)
+
+			li = 0
+			s.lp.start()
+			ldata = s.lf.readframes(sample_size)
+			s.lp.queue.put(ldata)
 		while True:
-			data = s.f.readframes(s.chunk)
-			stream.write(data)
-			if not data:
+			if s.LIVE:
+				if (mi+1)*s.chunk > li*sample_size:
+					s.lp.queue.join()
+					s.lp.send_map()
+					ldata = s.lf.readframes(sample_size)
+					s.lp.queue.put(ldata)
+					li += 1
+			mdata = s.mf.readframes(s.chunk)
+			stream.write(mdata)
+			if not mdata:
 				break
+			mi += 1
 
 		stream.stop_stream()
 		stream.close()
 
 		s.p.terminate()
 
-
-	# def run(s):
-	# 	s.lp.start()
-	#
-	# 	stream = s.p.open(format=s.p.get_format_from_width(s.f.getsampwidth()),
-	# 					channels=s.f.getnchannels(),
-	# 					rate=s.f.getframerate(),
-	# 					output=True)
-	#
-	# 	data = s.f.readframes(s.chunk)
-	# 	s.lp.queue.put(data)
-	# 	while True:
-	# 		next = s.f.readframes(s.chunk)
-	# 		s.lp.queue.join()
-	# 		s.lp.send_map()
-	# 		if not next:
-	# 			s.lp.queue.put(data)
-	# 		stream.write(data)
-	# 		data = next
-	# 		if not data:
-	# 			break
-	#
-	# 	stream.stop_stream()
-	# 	stream.close()
-	#
-	# 	s.p.terminate()
-
 def sigmoid(x):
 	return 1 / (1 + np.exp(-x))
 
 class LivePlayer(threading.Thread):
-	def __init__(s, fr):
+	def __init__(s):
 		threading.Thread.__init__(s)
-		s.fr = fr
+		s.fr = 10
 		s.map = (0, 0, 0)
 		s.queue = Queue()
 		s.light_player = LightPlayer()
 
 	def run(s):
 		while True:
-			da = np.fromstring(s.queue.get(), dtype=np.int16)
+			data = s.queue.get()
+			if not data:
+				break
+			da = np.fromstring(data, dtype=np.int16)
 			left, right = da[0::2], da[1::2]  # left and right channel
 			sample = left
 			s.map = s.light_player.gen_slice(sample, s.fr)
 			s.queue.task_done()
+		s.queue.task_done()
 
 	def send_map(s):
 		s.light_player.send_map(s.map)
@@ -226,28 +224,28 @@ class LightPlayer(threading.Thread):
 		sat = math.sqrt((x * x) + (y * y)) ** (1 / 3)
 		bri = sum(sigmoid(abs(sample)) * 2 - 1) / len(sample)
 
-		# if _slice_number % 400 == 0:
-		# 	print(hue, sat, bri)
-		#
-		# 	fig, ax1 = plt.subplots()
-		# 	ax1.plot(range(len(graph)), graph, color='b')
-		# 	fig.show()
-		#
-		# 	fig, ax2 = plt.subplots()
-		# 	ax2.plot(range(len(graph1)), graph1, color='b')
-		# 	fig.show()
-		#
-		# 	fig, ax3 = plt.subplots()
-		# 	ax3.plot(points_x, points_y, color='b')
-		# 	ax3.scatter(0, 0)
-		# 	ax3.scatter(x, y)
-		# 	fig.show()
+		if 0:
+			print(hue, sat, bri)
 
-		# # ax2 = ax1.twinx()
-		# fig, ax2 = plt.subplots()
-		# ax2.plot(range(len(sample)), sample, color='g')
-		# # ax2.plot(range(len(freqs)), freqs, color='b')
-		# fig.show()
+			fig, ax1 = plt.subplots()
+			ax1.plot(range(len(graph)), graph, color='b')
+			fig.show()
+
+			fig, ax2 = plt.subplots()
+			ax2.plot(range(len(graph1)), graph1, color='b')
+			fig.show()
+
+			fig, ax3 = plt.subplots()
+			ax3.plot(points_x, points_y, color='b')
+			ax3.scatter(0, 0)
+			ax3.scatter(x, y)
+			fig.show()
+
+			# ax2 = ax1.twinx()
+			fig, ax2 = plt.subplots()
+			ax2.plot(range(len(sample)), sample, color='g')
+			# ax2.plot(range(len(freqs)), freqs, color='b')
+			fig.show()
 
 		return (hue, sat, bri)
 
@@ -277,8 +275,8 @@ class LightPlayer(threading.Thread):
 			'sat': int(map[1] * 254),
 			'bri': int(map[2] * 254)
 		}
-		print(command)
 		s.b.set_light('cal', command)
+		print(command)
 
 	def run(s):
 		start = time.time()
@@ -323,8 +321,8 @@ def test3():
 if __name__ == '__main__':
 	# run()
 	# test1()
-	test2()
-	# test3()
+	# test2()
+	test3()
 
 
 
