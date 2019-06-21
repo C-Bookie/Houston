@@ -64,7 +64,7 @@ def test2():
 	#
 	# if 1:
 
-	path = "./audio/toto_africa.wav"
+	path = "./audio/mass.wav"
 	music = wave.open(path, 'r')
 
 
@@ -79,43 +79,19 @@ def test2():
 		# lf, rf = np.fft.rfftfreq(left), np.fft.rfftfreq(right)
 
 		sample = left
-		# sample /= 1500
+
+		limit = 1000000 / frame_rate
+		sample = sample / limit
 
 		graph = np.abs(np.fft.rfft(sample).real)
 		graph1 = sigmoid(graph) * 2 - 1
 
 
-		sum = 0
-		i = 0
-		for n in graph1:
-			sum += i * n
-			i += 1
-		avg = 1 - (sum / i)
-		print(avg)
-
-		# min = 20
-		# max = 20000
-		# m2m = max - min  # min to max
-		#
-		# x = []
-		# y = []
-		# for i in range(m2m):
-		# 	freq = freqs[min + i]
-		# 	theta = (i/m2m) * (5/6)  # *5/6 cuts pink from the rainbow
-		# 	x += [freq * math.sin(theta)]
-		# 	y += [freq * math.cos(theta)]
-		# x = sum(x)/m2m
-		# y = sum(x)/m2m
-
-
-		# min = 100
-		# max = 1000
-
-		min = 0
+		min = 10
+		# max = int(limit)
 		max = len(graph1)
 
 		l = max - min
-
 		graph1 = graph1[min:max]
 
 		points_x = []
@@ -123,16 +99,20 @@ def test2():
 		for i in range(l):
 			freq = graph1[i]
 			theta = i / l
-			theta *= (5/6)  # *5/6 cuts pink from the rainbow
+			# theta *= (5/6)  # *5/6 cuts pink from the rainbow
 			theta *= math.pi * 2
 			points_x += [freq * math.sin(theta)]
 			points_y += [freq * math.cos(theta)]
-		# freqs = np.fft.fftfreq(len(graph1))
+
 
 		x = np.sum(points_x) / len(points_x)
 		y = np.sum(points_y) / len(points_y)
-		z = math.sqrt(x*x + y*y)
-		print(x, y, z)
+
+		hue = (math.atan2(x, y) + (2 * math.pi if x < 0 else 0)) / (2 * math.pi)
+		sat = math.sqrt((x * x) + (y * y))
+		bri = sum(sigmoid(sample)) / len(sample)
+
+		print(hue, sat, bri)
 
 
 		fig, ax1 = plt.subplots()
@@ -145,6 +125,8 @@ def test2():
 
 		fig, ax3 = plt.subplots()
 		ax3.plot(points_x, points_y, color='b')
+		ax3.scatter(0, 0)
+		ax3.scatter(x, y)
 		fig.show()
 
 		# ax2 = ax1.twinx()

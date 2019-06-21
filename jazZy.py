@@ -6,17 +6,14 @@ import math
 import phue
 import time
 import random
-import json
+
+import numpy as np
 
 import pyaudio as pyaudio
 import pygame
 
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
-from matplotlib import cm
 
-import pychorus
-from pychorus import similarity_matrix
 
 deadzone = 0.25
 
@@ -136,41 +133,17 @@ class MusicPlayer(threading.Thread):
 
 		s.p.terminate()
 
-import numpy as np
-
-
 def sigmoid(x):
 	return 1 / (1 + np.exp(-x))
 
 class LightPlayer(threading.Thread):
-	def __init__(s, path):
+	def __init__(s):
 		threading.Thread.__init__(s)
-
 		s.b = phue.Bridge('192.168.1.211')
 		s.b.connect()
-
-		# chroma, _, sr, _ = pychorus.create_chroma(path)
-		# time_time_similarity = similarity_matrix.TimeTimeSimilarityMatrix(chroma, sr)
-		# time_lag_similarity = similarity_matrix.TimeLagSimilarityMatrix(chroma, sr)
-		#
-		# time_time_similarity.display()
-		# time_lag_similarity.display()
-
-		# f = wave.open(path, 'r')
-		# track_length = f.getnframes() / f.getframerate()
-
 		s.map = []
-		# for i in range(int(track_length*10)):
-		# 	j = int(track_length*10 / len(time_time_similarity.matrix))
-		# 	slice = []
-		# 	slice += [0.5]
-		# 	# slice += [sum(time_time_similarity.matrix[j])/len(time_time_similarity.matrix[j])]
-		# 	# slice += [sum(time_lag_similarity.matrix[j])/len(time_lag_similarity.matrix[j])]
-		# 	slice += [time_time_similarity.matrix[j][10]]
-		# 	slice += [time_lag_similarity.matrix[j][10]]
-		# 	s.map += [slice]
 
-		wr = wave.open(path, 'r')
+	def generate(s, path):
 		music = wave.open(path, 'r')
 
 		frame_rate = 10
@@ -178,43 +151,27 @@ class LightPlayer(threading.Thread):
 		# A larger number for fr means less reverb.
 		number_of_slices = int(music.getnframes() / sample_size)  # count of the whole file
 
-		for slice_number in range(number_of_slices):
+		for _slice_number in range(number_of_slices):
 			da = np.fromstring(music.readframes(sample_size), dtype=np.int16)
 			left, right = da[0::2], da[1::2]  # left and right channel
 			# lf, rf = np.fft.rfftfreq(left), np.fft.rfftfreq(right)
 
 			sample = left
-			# sample /= 1500
 
-			graph = np.abs(np.fft.rfft(sample).real)
-			a = sigmoid(graph) * 2 - 1
+			co = 3#math.e
+			scaler = 100000
 
+			limit = scaler / frame_rate
+			sample = sample / limit
 
-			# w = np.fft.rfft(left)
-			# freqs = np.fft.rfftfreq(len(w))
-			# track_length = len(left)
-			#
-			# l = len(freqs)
+			graph = np.abs(np.fft.rfft(sample).real) ** (1/co)
+			graph1 = sigmoid(graph) * 2 - 1
 
-			# min = 20
-			# max = 20000
-			# m2m = max - min  # min to max
-			#
-			# x = []
-			# y = []
-			# for i in range(m2m):
-			# 	freq = freqs[min + i]
-			# 	theta = (i/m2m) * (5/6)  # *5/6 cuts pink from the rainbow
-			# 	x += [freq * math.sin(theta)]
-			# 	y += [freq * math.cos(theta)]
-			# x = sum(x)/m2m
-			# y = sum(x)/m2m
-
-			min = 0
+			min = 10
+			# max = int(limit)
 			max = len(graph1)
 
 			l = max - min
-
 			graph1 = graph1[min:max]
 
 			points_x = []
@@ -222,37 +179,49 @@ class LightPlayer(threading.Thread):
 			for i in range(l):
 				freq = graph1[i]
 				theta = i / l
-				theta *= (5 / 6)  # *5/6 cuts pink from the rainbow
+				# theta *= (5/6)  # *5/6 cuts pink from the rainbow
 				theta *= math.pi * 2
 				points_x += [freq * math.sin(theta)]
 				points_y += [freq * math.cos(theta)]
-			# freqs = np.fft.fftfreq(len(graph1))
 
 			x = np.sum(points_x) / len(points_x)
 			y = np.sum(points_y) / len(points_y)
-			z = math.sqrt(x * x + y * y)
-			print(x, y, z)
 
-			hue = (math.atan2(x, y) + (2 * math.pi if x < 0 else 0)) / (2 * math.pi)
-			sat = math.sqrt(x**2 + y**2)
-			# bri = sum(freqs)/l
-			bri = z
+			hue = ((math.atan2(x, y) + (2 * math.pi if x < 0 else 0)) / (2 * math.pi))# ** (1/co)
+			sat = math.sqrt((x * x) + (y * y)) ** (1/co)
+			bri = sum(sigmoid(abs(sample)) * 2 - 1) / len(sample)
 
-			if slice_number%1 == 0:
+			if _slice_number%400 == 0:
+				print(hue, sat, bri)
+
 				fig, ax1 = plt.subplots()
-
-				ax1.plot(range(len(a)), a, color='m')
-				# ax1.plot(range(len(b)), b, color='g')
-
-				# ax2 = ax1.twinx()
-				# ax2.plot(range(len(b)), b, color='g')
-
-				# fig.legend(['w', 'f'])
-				# fig.tight_layout()
+				ax1.plot(range(len(graph)), graph, color='b')
 				fig.show()
-				pass
+
+				fig, ax2 = plt.subplots()
+				ax2.plot(range(len(graph1)), graph1, color='b')
+				fig.show()
+
+				fig, ax3 = plt.subplots()
+				ax3.plot(points_x, points_y, color='b')
+				ax3.scatter(0, 0)
+				ax3.scatter(x, y)
+				fig.show()
+
+				# # ax2 = ax1.twinx()
+				# fig, ax2 = plt.subplots()
+				# ax2.plot(range(len(sample)), sample, color='g')
+				# # ax2.plot(range(len(freqs)), freqs, color='b')
+				# fig.show()
 
 			s.map += [[hue, sat, bri]]
+
+			# if _sli ce_number == 10:
+			# 	break
+		np.save('map.npy', s.map)
+
+	def load(s):
+		s.map = np.load('map.npy')
 
 	def run(s):
 		start = time.time()
@@ -268,15 +237,156 @@ class LightPlayer(threading.Thread):
 			print(command)
 			s.b.set_light('cal', command)
 			i+=1
-			time.sleep(start + (i/10) - time.time())
+			wait = start + (i/10) - time.time()
+			if wait > 0:
+				time.sleep(wait)
 
 
+class LivePlayer(threading.Thread):
+	def __init__(s, path):
+		threading.Thread.__init__(s)
+		s.b = phue.Bridge('192.168.1.211')
+		s.b.connect()
+		s.map = []
 
-def test():
-	path = "./audio/toto_africa.wav"
+		s.path = path
+		s.f = wave.open(path, 'r')
+		s.chunk = 1024
+		s.p = pyaudio.PyAudio()
 
+	def run(s):
+		stream = s.p.open(format=s.p.get_format_from_width(s.f.getsampwidth()),
+						  channels=s.f.getnchannels(),
+						  rate=s.f.getframerate(),
+						  output=True)
+
+		while True:
+			data = s.f.readframes(s.chunk)
+			stream.write(data)
+			if not data:
+				break
+
+		stream.stop_stream()
+		stream.close()
+
+		s.p.terminate()
+
+	def generate(s, path):
+		music = wave.open(path, 'r')
+
+		frame_rate = 10
+		sample_size = music.getframerate() // frame_rate  # Read and process 1/fr second at a time.
+		# A larger number for fr means less reverb.
+		number_of_slices = int(music.getnframes() / sample_size)  # count of the whole file
+
+		for _slice_number in range(number_of_slices):
+			da = np.fromstring(music.readframes(sample_size), dtype=np.int16)
+			left, right = da[0::2], da[1::2]  # left and right channel
+			# lf, rf = np.fft.rfftfreq(left), np.fft.rfftfreq(right)
+
+			sample = left
+
+			co = 3#math.e
+			scaler = 100000
+
+			limit = scaler / frame_rate
+			sample = sample / limit
+
+			graph = np.abs(np.fft.rfft(sample).real) ** (1/co)
+			graph1 = sigmoid(graph) * 2 - 1
+
+			min = 10
+			# max = int(limit)
+			max = len(graph1)
+
+			l = max - min
+			graph1 = graph1[min:max]
+
+			points_x = []
+			points_y = []
+			for i in range(l):
+				freq = graph1[i]
+				theta = i / l
+				# theta *= (5/6)  # *5/6 cuts pink from the rainbow
+				theta *= math.pi * 2
+				points_x += [freq * math.sin(theta)]
+				points_y += [freq * math.cos(theta)]
+
+			x = np.sum(points_x) / len(points_x)
+			y = np.sum(points_y) / len(points_y)
+
+			hue = ((math.atan2(x, y) + (2 * math.pi if x < 0 else 0)) / (2 * math.pi))# ** (1/co)
+			sat = math.sqrt((x * x) + (y * y)) ** (1/co)
+			bri = sum(sigmoid(abs(sample)) * 2 - 1) / len(sample)
+
+			if _slice_number%400 == 0:
+				print(hue, sat, bri)
+
+				fig, ax1 = plt.subplots()
+				ax1.plot(range(len(graph)), graph, color='b')
+				fig.show()
+
+				fig, ax2 = plt.subplots()
+				ax2.plot(range(len(graph1)), graph1, color='b')
+				fig.show()
+
+				fig, ax3 = plt.subplots()
+				ax3.plot(points_x, points_y, color='b')
+				ax3.scatter(0, 0)
+				ax3.scatter(x, y)
+				fig.show()
+
+				# # ax2 = ax1.twinx()
+				# fig, ax2 = plt.subplots()
+				# ax2.plot(range(len(sample)), sample, color='g')
+				# # ax2.plot(range(len(freqs)), freqs, color='b')
+				# fig.show()
+
+			s.map += [[hue, sat, bri]]
+
+			# if _sli ce_number == 10:
+			# 	break
+		np.save('map.npy', s.map)
+
+	def load(s):
+		s.map = np.load('map.npy')
+
+	def run(s):
+		start = time.time()
+
+		i = 0
+		for slice in s.map:
+			command = {
+				'transitiontime': 1,
+				'hue': int(slice[0] * 65535),
+				'sat': int(slice[1] * 254),
+				'bri': int(slice[2] * 254)
+			}
+			print(command)
+			s.b.set_light('cal', command)
+			i+=1
+			wait = start + (i/10) - time.time()
+			if wait > 0:
+				time.sleep(wait)
+
+
+def test1():
+	path = "./audio/mass.wav"
+	lPlayer = LightPlayer()
+	lPlayer.generate(path)
+
+	fig, ax1 = plt.subplots()
+	ax1.plot(range(len(lPlayer.map)), [bri for hue, sat, bri in lPlayer.map], color='b')
+	ax1.plot(range(len(lPlayer.map)), [hue for hue, sat, bri in lPlayer.map], color='r')
+	ax1.plot(range(len(lPlayer.map)), [sat for hue, sat, bri in lPlayer.map], color='g')
+	fig.show()
+
+
+def test2():
+	path = "./audio/mass.wav"
 	mPlayer = MusicPlayer(path)
-	lPlayer = LightPlayer(path)
+	lPlayer = LightPlayer()
+	lPlayer.load()
 
 	mPlayer.start()
 	lPlayer.run()
@@ -284,7 +394,8 @@ def test():
 
 if __name__ == '__main__':
 	# run()
-	test()
+	test1()
+	# test2()
 
 
 
