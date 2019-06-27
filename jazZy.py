@@ -1,4 +1,21 @@
 #testing phue and mqtt for motion sensing lights
+
+#TODO
+#merge audio streams
+#add audio input stream
+#impliment spotify steam
+
+#finish lightRiderGym
+#develop flame for stream/training
+#develpo multi dimentional (1<D) grids
+
+#add TCP music stream
+#intergrate into huston
+
+
+
+
+
 import threading
 import wave
 from queue import Queue
@@ -17,6 +34,7 @@ import matplotlib.pyplot as plt
 
 
 deadzone = 0.25
+GEN_GRAPHS = False
 
 def correctJoy(n):
 	if n < deadzone and n > -deadzone:
@@ -41,7 +59,7 @@ class ButtonManager():
 		s.base = 0
 		s.last = 0
 		s.offset = 0
-		s.button_hot = [False] * s.joysticks[0].get_numbuttons()
+		# s.button_hot = [False] * s.joysticks[0].get_numbuttons()
 
 		s.recorded = []
 		s.replay = False
@@ -60,39 +78,41 @@ class ButtonManager():
 			"hats": [s.joysticks[0].get_hat(i) for i in range(s.joysticks[0].get_numhats())],
 		}
 
-		if s.replay:
-			s.temp["axis"] = s.recorded[s.count % len(s.recorded)]
+		if 0:
 
-		for i in range(s.joysticks[0].get_numbuttons()):
-			if s.temp["buttons"][i]:
-				if not s.button_hot[i]:
-					s.button_hot[i] = True
-					if i == 0:
-						s.base = random.uniform(0, 1)
-					if i == 1:
-						s.last = (((1+s.temp["axis"][0]) / 2)+s.offset) % 1
-					if i == 4:
-						if len(s.recorded) > 0:
-							s.replay = not s.replay
-					if i == 2:
-						s.recorded = []
-						s.replay = False
-			else:
+			if s.replay:
+				s.temp["axis"] = s.recorded[s.count % len(s.recorded)]
 
-				if s.button_hot[i]:
-					s.button_hot[i] = False
+			for i in range(s.joysticks[0].get_numbuttons()):
+				if s.temp["buttons"][i]:
+					if not s.button_hot[i]:
+						s.button_hot[i] = True
+						if i == 0:
+							s.base = random.uniform(0, 1)
+						if i == 1:
+							s.last = (((1+s.temp["axis"][0]) / 2)+s.offset) % 1
+						if i == 4:
+							if len(s.recorded) > 0:
+								s.replay = not s.replay
+						if i == 2:
+							s.recorded = []
+							s.replay = False
+				else:
 
-		if s.button_hot[2]:
-			s.recorded += [s.temp["axis"]]
+					if s.button_hot[i]:
+						s.button_hot[i] = False
 
-		if s.button_hot[1]:
-			s.offset = (s.last-((1+s.temp["axis"][0]) / 2)) % 1
+			if s.button_hot[2]:
+				s.recorded += [s.temp["axis"]]
 
-		# command = (
-		# 	1-s.temp["axis"][3],
-		# 	(s.base+(((1+s.temp["axis"][0]) / 2)+s.offset)) % 1,
-		# 	1-s.temp["axis"][1]
-		# )
+			if s.button_hot[1]:
+				s.offset = (s.last-((1+s.temp["axis"][0]) / 2)) % 1
+
+			# command = (
+			# 	1-s.temp["axis"][3],
+			# 	(s.base+(((1+s.temp["axis"][0]) / 2)+s.offset)) % 1,
+			# 	1-s.temp["axis"][1]
+			# )
 		s.count += 1
 		return s.temp["axis"]
 
@@ -100,11 +120,11 @@ class ButtonManager():
 class MusicPlayer(threading.Thread):
 	def __init__(s, path):
 		threading.Thread.__init__(s)
-		s.mf = wave.open(path, 'r')
+		s.f = wave.open(path, 'r')
 		s.chunk = 1024
 		s.p = pyaudio.PyAudio()
 		s.LIVE = True
-		s.JOY = True
+		s.JOY = False
 		if s.LIVE:
 			s.lf = wave.open(path, 'r')
 			s.lp = LivePlayer()
@@ -112,10 +132,12 @@ class MusicPlayer(threading.Thread):
 				s.bm = ButtonManager()
 
 	def run(s):
-		stream = s.p.open(format=s.p.get_format_from_width(s.mf.getsampwidth()),
-						channels=s.mf.getnchannels(),
-						rate=s.mf.getframerate(),
+		stream = s.p.open(format=s.p.get_format_from_width(s.f.getsampwidth()),
+						channels=s.f.getnchannels(),
+						rate=s.f.getframerate(),
 						output=True)
+
+		next = s.lf.readframes(s.chunk)
 
 		mi = 0
 		if s.LIVE:
@@ -125,29 +147,47 @@ class MusicPlayer(threading.Thread):
 
 			li = 0
 			s.lp.start()
-			ldata = s.lf.readframes(sample_size)
-			s.lp.queue.put(ldata)
+			s.lp.queue.put(next)
+
+			s.chunk = sample_size
+
+		skip = 00
+		s.f.setpos(s.chunk * skip)
+		mi = skip
+
 		while True:
+			data = next
+			next = s.f.readframes(s.chunk)
 			if s.LIVE:
 				if (mi+1)*s.chunk > li*sample_size:
 					s.lp.queue.join()
 					s.lp.send_map()
-					ldata = s.lf.readframes(sample_size)
+					# ldata = s.lf.readframes(sample_size)
+					ldata = next
 					if s.JOY:
 						controls = np.array(s.bm.update())
 						# controls **= 2
 						controls *= 3
 						# print(controls)
-						s.lp.light_player.hueCo = 1 / (2 + controls[0])
-						s.lp.light_player.satCo = 1 / (3 + (1-controls[1]))
-						s.lp.light_player.velocity = 4.9 + (controls[2])
-						s.lp.light_player.curve = (1 + controls[3])
+						# s.lp.light_player.hueCo = 1 / (2 + controls[0])
+						# s.lp.light_player.satCo = 1 / (3 + (1-controls[1]))
+						# s.lp.light_player.velocity = 4.9 + (controls[2])
+						# s.lp.light_player.curve = (1 + controls[3])
+
+						# s.lp.light_player.hueCo = 1 / (2 + controls[0])
+						# s.lp.light_player.satCo = 1 / (3 + (1-controls[1]))
+						s.lp.light_player.velocity = 4.9 + (controls[3])
+						s.lp.light_player.curve = (1 + controls[4])
 					s.lp.queue.put(ldata)
 					li += 1
-			mdata = s.mf.readframes(s.chunk)
+			mdata = data
 			stream.write(mdata)
 			if not mdata:
 				break
+
+			if mi % 10 == 0:
+				print(mi)
+
 			mi += 1
 
 		stream.stop_stream()
@@ -190,8 +230,15 @@ class LightPlayer(threading.Thread):
 		s.b.connect()
 		s.map = []
 
-		s.velocity = 4.9
-		s.curve = 1
+		# s.velocity = 4.9
+		# s.curve = 2
+		# s.cap = 1.5
+		# s.cutoff = 0.96
+		# s.hueCo = (1 / 2)
+		# s.satCo = (1 / 3)
+
+		s.velocity = 4.7
+		s.curve = 2
 		s.cap = 1.5
 		s.cutoff = 0.96
 		s.hueCo = (1 / 2)
@@ -231,7 +278,7 @@ class LightPlayer(threading.Thread):
 		sat = math.sqrt((x * x) + (y * y)) ** s.satCo
 		bri = sum(sigmoid(abs(sample)) * 2 - 1) / len(sample)
 
-		if 0:
+		if GEN_GRAPHS:
 			print(hue, sat, bri)
 
 			fig, ax1 = plt.subplots()
@@ -276,6 +323,7 @@ class LightPlayer(threading.Thread):
 		s.map = np.load('map.npy')
 
 	def send_map(s, map):
+		# print(map)
 		command = {
 			'transitiontime': 1,
 			'hue': int(map[0] * 65535),
@@ -324,10 +372,13 @@ def test3(path):
 
 if __name__ == '__main__':
 	# path = "./audio/mass.wav"
-	path = "./audio/kuzz.wav"	# run()
-	test1(path)
+	# path = "./audio/kuzz.wav"	# run()
+	# path = "./audio/mozart.wav"
+	# path = "./audio/dubwise.wav"
+	path = "./audio/birdy.wav"
+	# test1(path)
 	# test2(path)
-	# test3(path)
+	test3(path)
 
 
 
