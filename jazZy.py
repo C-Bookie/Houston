@@ -117,10 +117,99 @@ class ButtonManager():
 		return s.temp["axis"]
 
 
+#https://github.com/intxcc/pyaudio_portaudio/blob/master/example/echo.py
+def openStream():
+	defaultframes = 512
+
+	class textcolors:
+		blue = '\033[94m'
+		green = '\033[92m'
+		warning = '\033[93m'
+		fail = '\033[91m'
+		end = '\033[0m'
+
+	useloopback = False
+
+	# Use module
+	p = pyaudio.PyAudio()
+
+	# Set default to first in list or ask Windows
+	try:
+		default_device_index = p.get_default_input_device_info()
+	except IOError:
+		default_device_index = -1
+
+
+	if 0:
+		# Select Device
+		print(textcolors.blue + "Available devices:\n" + textcolors.end)
+		for i in range(0, p.get_device_count()):
+			info = p.get_device_info_by_index(i)
+			print(textcolors.green + str(info["index"]) + textcolors.end + ": \t %s \n \t %s \n" % (
+			info["name"], p.get_host_api_info_by_index(info["hostApi"])["name"]))
+
+			if default_device_index == -1:
+				default_device_index = info["index"]
+
+		# Handle no devices available
+		if default_device_index == -1:
+			print(textcolors.fail + "No device available. Quitting." + textcolors.end)
+			exit()
+
+		# Get input or default
+		device_id = int(input("Choose device [" + textcolors.blue + str(
+			default_device_index) + textcolors.end + "]: ") or default_device_index)
+	else:
+		device_id = 9
+	print("")
+
+	# Get device info
+	try:
+		device_info = p.get_device_info_by_index(device_id)
+	except IOError:
+		device_info = p.get_device_info_by_index(default_device_index)
+		print(textcolors.warning + "Selection not available, using default." + textcolors.end)
+
+	# Choose between loopback or standard mode
+	is_input = device_info["maxInputChannels"] > 0
+	is_wasapi = (p.get_host_api_info_by_index(device_info["hostApi"])["name"]).find("WASAPI") != -1
+	if is_input:
+		print(textcolors.blue + "Selection is input using standard mode.\n" + textcolors.end)
+	else:
+		if is_wasapi:
+			useloopback = True;
+			print(textcolors.green + "Selection is output. Using loopback mode.\n" + textcolors.end)
+		else:
+			print(
+				textcolors.fail + "Selection is output and does not support loopback mode. Quitting.\n" + textcolors.end)
+			exit()
+
+	# Open stream
+	channelcount = device_info["maxInputChannels"] if (
+				device_info["maxOutputChannels"] < device_info["maxInputChannels"]) else device_info[
+		"maxOutputChannels"]
+	stream = p.open(format=pyaudio.paInt16,
+					channels=channelcount,
+					rate=int(device_info["defaultSampleRate"]),
+					input=True,
+					frames_per_buffer=defaultframes,
+					input_device_index=device_info["index"],
+					as_loopback=useloopback)
+
+	return stream
+
 class MusicPlayer(threading.Thread):
 	def __init__(s, path):
 		threading.Thread.__init__(s)
-		s.f = wave.open(path, 'r')
+		s.USE_WAV = False
+		s.OUTPUT = False
+		if s.USE_WAV:
+			s.f = wave.open(path, 'r')
+			s.sampleWidth = s.f.getsampwidth()
+			s.channels = s.f.getnchannels()
+			s.framerate = s.f.getframerate()
+
+
 		s.chunk = 1024
 		s.p = pyaudio.PyAudio()
 		s.LIVE = True
@@ -132,10 +221,12 @@ class MusicPlayer(threading.Thread):
 				s.bm = ButtonManager()
 
 	def run(s):
-		stream = s.p.open(format=s.p.get_format_from_width(s.f.getsampwidth()),
-						channels=s.f.getnchannels(),
-						rate=s.f.getframerate(),
-						output=True)
+		if not s.USE_WAV:
+			in_stream = openStream()
+
+			s.sampleWidth = 44000
+			s.framerate = 10
+
 
 		next = s.lf.readframes(s.chunk)
 
@@ -149,15 +240,27 @@ class MusicPlayer(threading.Thread):
 			s.lp.start()
 			s.lp.queue.put(next)
 
-			s.chunk = sample_size
+			if s.USE_WAV:
+				s.chunk = sample_size
 
-		skip = 00
-		s.f.setpos(s.chunk * skip)
-		mi = skip
+
+		if s.OUTPUT:
+			out_stream = s.p.open(format=s.p.get_format_from_width(s.sampleWidth),
+				channels=s.channels,
+				rate=s.framerate,
+				output=True)
+
+		if s.USE_WAV:
+			skip = 00
+			s.f.setpos(s.chunk * skip)
+			mi = skip
 
 		while True:
 			data = next
-			next = s.f.readframes(s.chunk)
+			if s.USE_WAV:
+				next = s.f.readframes(s.chunk)
+			else:
+				next = in_stream.read(int(sample_size/1.1))
 			if s.LIVE:
 				if (mi+1)*s.chunk > li*sample_size:
 					s.lp.queue.join()
@@ -181,7 +284,8 @@ class MusicPlayer(threading.Thread):
 					s.lp.queue.put(ldata)
 					li += 1
 			mdata = data
-			stream.write(mdata)
+			if s.OUTPUT:
+				out_stream.write(mdata)
 			if not mdata:
 				break
 
@@ -190,8 +294,8 @@ class MusicPlayer(threading.Thread):
 
 			mi += 1
 
-		stream.stop_stream()
-		stream.close()
+		out_stream.stop_stream()
+		out_stream.close()
 
 		s.p.terminate()
 
@@ -237,9 +341,10 @@ class LightPlayer(threading.Thread):
 		# s.hueCo = (1 / 2)
 		# s.satCo = (1 / 3)
 
-		s.velocity = 4.7
-		s.curve = 2
+		s.velocity = 4.4
+		s.curve = 3
 		s.cap = 1.5
+		s.start = 0.7
 		s.cutoff = 0.96
 		s.hueCo = (1 / 2)
 		s.satCo = (1 / 3)
@@ -266,7 +371,8 @@ class LightPlayer(threading.Thread):
 		for i in range(l):
 			freq = graph1[i]
 			theta = i / l
-			theta *= s.cutoff  # cuts pink from the rainbow
+			theta *= s.cutoff - s.start  # cuts pink from the rainbow
+			theta += s.start
 			theta *= math.pi * 2
 			points_x += [freq * math.sin(theta)]
 			points_y += [freq * math.cos(theta)]
@@ -324,14 +430,18 @@ class LightPlayer(threading.Thread):
 
 	def send_map(s, map):
 		# print(map)
+
+		on = True
+		# on = (True if (map[2] > 1/254) else False)
 		command = {
 			'transitiontime': 1,
 			'hue': int(map[0] * 65535),
 			'sat': int(map[1] * 254),
-			'bri': int(map[2] * 254)
+			'bri': int(map[2] * 254),
+			'on': on
 		}
 		s.b.set_light('cal', command)
-		# print(command)
+		print(command)
 
 	def run(s):
 		start = time.time()
