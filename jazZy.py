@@ -36,12 +36,14 @@ import matplotlib.pyplot as plt
 deadzone = 0.25
 GEN_GRAPHS = False
 
+
 def correctJoy(n):
 	if n < deadzone and n > -deadzone:
 		return 0.
 	if n < 0:
 		return -n**2
 	return n**2
+
 
 class ButtonManager():
 	def __init__(s):
@@ -140,7 +142,7 @@ def openStream():
 		default_device_index = -1
 
 
-	if 0:
+	if 1:
 		# Select Device
 		print(textcolors.blue + "Available devices:\n" + textcolors.end)
 		for i in range(0, p.get_device_count()):
@@ -177,7 +179,7 @@ def openStream():
 		print(textcolors.blue + "Selection is input using standard mode.\n" + textcolors.end)
 	else:
 		if is_wasapi:
-			useloopback = True;
+			useloopback = True
 			print(textcolors.green + "Selection is output. Using loopback mode.\n" + textcolors.end)
 		else:
 			print(
@@ -198,11 +200,12 @@ def openStream():
 
 	return stream
 
+
 class MusicPlayer(threading.Thread):
 	def __init__(s, path):
 		threading.Thread.__init__(s)
-		s.USE_WAV = False
-		s.OUTPUT = False
+		s.USE_WAV = True
+		s.OUTPUT = True
 		if s.USE_WAV:
 			s.f = wave.open(path, 'r')
 			s.sampleWidth = s.f.getsampwidth()
@@ -212,10 +215,10 @@ class MusicPlayer(threading.Thread):
 
 		s.chunk = 1024
 		s.p = pyaudio.PyAudio()
-		s.LIVE = True
-		s.JOY = False
+		s.LIVE = False
+		s.JOY = True
 		if s.LIVE:
-			s.lf = wave.open(path, 'r')
+			# s.lf = wave.open(path, 'r')
 			s.lp = LivePlayer()
 			if s.JOY:
 				s.bm = ButtonManager()
@@ -228,13 +231,13 @@ class MusicPlayer(threading.Thread):
 			s.framerate = 10
 
 
-		next = s.lf.readframes(s.chunk)
+		next = s.f.readframes(s.chunk)
 
 		mi = 0
 		if s.LIVE:
 			frame_rate = 10
-			sample_size = s.lf.getframerate() // frame_rate
-			number_of_slices = int(s.lf.getnframes() / sample_size)
+			sample_size = s.f.getframerate() // frame_rate
+			number_of_slices = int(s.f.getnframes() / sample_size)
 
 			li = 0
 			s.lp.start()
@@ -264,7 +267,7 @@ class MusicPlayer(threading.Thread):
 			if s.LIVE:
 				if (mi+1)*s.chunk > li*sample_size:
 					s.lp.queue.join()
-					s.lp.send_map()
+					s.lp.light_player.send_map_slice(s.lp.slice)
 					# ldata = s.lf.readframes(sample_size)
 					ldata = next
 					if s.JOY:
@@ -272,15 +275,15 @@ class MusicPlayer(threading.Thread):
 						# controls **= 2
 						controls *= 3
 						# print(controls)
-						# s.lp.light_player.hueCo = 1 / (2 + controls[0])
-						# s.lp.light_player.satCo = 1 / (3 + (1-controls[1]))
-						# s.lp.light_player.velocity = 4.9 + (controls[2])
-						# s.lp.light_player.curve = (1 + controls[3])
+						s.lp.light_player.hueCo = 1 / (2 + controls[0])
+						s.lp.light_player.satCo = 1 / (3 + (1-controls[1]))
+						s.lp.light_player.velocity = 4.9 + (controls[2])
+						s.lp.light_player.curve = (1 + controls[3])
 
 						# s.lp.light_player.hueCo = 1 / (2 + controls[0])
 						# s.lp.light_player.satCo = 1 / (3 + (1-controls[1]))
-						s.lp.light_player.velocity = 4.9 + (controls[3])
-						s.lp.light_player.curve = (1 + controls[4])
+						# s.lp.light_player.velocity = 4.9 + (controls[3])
+						# s.lp.light_player.curve = (1 + controls[4])
 					s.lp.queue.put(ldata)
 					li += 1
 			mdata = data
@@ -299,14 +302,16 @@ class MusicPlayer(threading.Thread):
 
 		s.p.terminate()
 
+
 def sigmoid(x):
 	return 1 / (1 + np.exp(-x))
+
 
 class LivePlayer(threading.Thread):
 	def __init__(s):
 		threading.Thread.__init__(s)
 		s.fr = 10
-		s.map = (0, 0, 0)
+		s.slice = (0, 0, 0)
 		s.queue = Queue()
 		s.light_player = LightPlayer()
 
@@ -322,32 +327,28 @@ class LivePlayer(threading.Thread):
 			s.queue.task_done()
 		s.queue.task_done()
 
-	def send_map(s):
-		s.light_player.send_map(s.map)
-
-
 
 class LightPlayer(threading.Thread):
 	def __init__(s):
 		threading.Thread.__init__(s)
-		s.b = phue.Bridge('192.168.1.211')
+		s.b = phue.Bridge('192.168.1.227')
 		s.b.connect()
-		s.map = []
 
-		# s.velocity = 4.9
-		# s.curve = 2
+		s.velocity = 4.7  # lower is brighter
+		s.curve = 2
+		s.cap = 1.5
+		s.start = 0.0
+		s.cutoff = 0.97
+		s.hueCo = (1 / 2)
+		s.satCo = (1 / 3)
+
+		# s.velocity = 4.4
+		# s.curve = 3
 		# s.cap = 1.5
+		# s.start = 0.7
 		# s.cutoff = 0.96
 		# s.hueCo = (1 / 2)
 		# s.satCo = (1 / 3)
-
-		s.velocity = 4.4
-		s.curve = 3
-		s.cap = 1.5
-		s.start = 0.7
-		s.cutoff = 0.96
-		s.hueCo = (1 / 2)
-		s.satCo = (1 / 3)
 
 	def gen_slice(s, sample, frame_rate):
 		scaler = 10**s.velocity
@@ -409,13 +410,15 @@ class LightPlayer(threading.Thread):
 
 		return (hue, sat, bri)
 
-	def generate(s, path):
+	def generate_map(s, path):
 		music = wave.open(path, 'r')
 
 		frame_rate = 10
 		sample_size = music.getframerate() // frame_rate  # Read and process 1/fr second at a time.
 		# A larger number for fr means less reverb.
 		number_of_slices = int(music.getnframes() / sample_size)  # count of the whole file
+
+		s.map = []
 
 		for _slice_number in range(number_of_slices):
 			da = np.fromstring(music.readframes(sample_size), dtype=np.int16)
@@ -428,36 +431,37 @@ class LightPlayer(threading.Thread):
 	def load(s):
 		s.map = np.load('map.npy')
 
-	def send_map(s, map):
-		# print(map)
+	def send_map_slice(s, slice):
+		# print(slice)
 
 		on = True
 		# on = (True if (map[2] > 1/254) else False)
 		command = {
 			'transitiontime': 1,
-			'hue': int(map[0] * 65535),
-			'sat': int(map[1] * 254),
-			'bri': int(map[2] * 254),
+			'hue': int(slice[0] * 65535),
+			'sat': int(slice[1] * 254),
+			'bri': int(slice[2] * 254),
 			'on': on
 		}
 		s.b.set_light('cal', command)
-		print(command)
+		# print(command)
 
 	def run(s):
 		start = time.time()
 
 		i = 0
 		for slice in s.map:
-			s.send_map(slice)
+			s.send_map_slice(slice)
 			i+=1
 			wait = start + (i/10) - time.time()
 			if wait > 0:
 				time.sleep(wait)
 
 
+
 def test1(path):
 	lPlayer = LightPlayer()
-	lPlayer.generate(path)
+	lPlayer.generate_map(path)
 
 	fig, ax1 = plt.subplots()
 	ax1.plot(range(len(lPlayer.map)), [bri for hue, sat, bri in lPlayer.map], color='b')
@@ -479,16 +483,54 @@ def test3(path):
 	mPlayer = MusicPlayer(path)
 	mPlayer.run()
 
+def test4():
+	lPlayer = LightPlayer()
+	i = 0
+	start = time.time()
+	fr = 10
+	lag = []
+
+	while True:
+		if i%fr == 0:
+			if len(lag) == 0:
+				avg_lag = 0
+			else:
+				avg_lag = sum(lag)/len(lag)
+			print(i//fr, ": \t", avg_lag)
+			lag = []
+			slice = (
+				1,
+				0.5,
+				1
+			)
+		else:
+			slice = (
+				1 - ((i%fr)/fr),
+				0.5,
+				# 1 - (1/(i%fr))
+				1
+			)
+
+		lPlayer.send_map_slice(slice)
+		i += 1
+
+		wait = start + (i/fr) - time.time()
+		if wait > 0:
+			time.sleep(wait)
+		else:
+			lag += [-wait]
+
 
 if __name__ == '__main__':
-	# path = "./audio/mass.wav"
+	path = "./audio/mass.wav"
 	# path = "./audio/kuzz.wav"	# run()
 	# path = "./audio/mozart.wav"
 	# path = "./audio/dubwise.wav"
-	path = "./audio/birdy.wav"
+	# path = "./audio/birdy.wav"
 	# test1(path)
-	# test2(path)
-	test3(path)
+	test2(path)
+	# test3(path)
+	# test4()
 
 
 
