@@ -136,7 +136,7 @@ class Trainer:  # a class for repetitive model training
                 # actions = np.array(holdem.safe_actions(community_infos, n_seats=self.env.n_seats))
 
 
-			reference = jazZy.
+			reference = jazZy
             scores += [get_score(reference)]
             print("M" if self.useModel else "T", "|cycle: ", i, " | ", score)
             for data in game_memory:

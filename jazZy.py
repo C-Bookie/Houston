@@ -330,7 +330,7 @@ class LivePlayer(threading.Thread):
 
 
 class LightPlayer(threading.Thread):
-	def __init__(s, bridgeIP='192.168.1.227', mill=True):
+	def __init__(s, bridgeIP='192.168.1.227', mill=False):
 		threading.Thread.__init__(s)
 		if bridgeIP is not None:
 			s.b = phue.Bridge(bridgeIP)
