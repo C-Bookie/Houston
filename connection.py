@@ -7,6 +7,16 @@ import serial
 
 DEBUG = True
 
+def encode(data):
+	def set_default(obj):
+		if isinstance(obj, set):
+			return list(obj)
+		return obj
+		#raise TypeError
+	return json.dumps(data, default=set_default)
+
+def decode(data):
+	return json.loads(data)
 
 class SocketHook(threading.Thread):
 	closed = threading.Event()
@@ -22,7 +32,7 @@ class SocketHook(threading.Thread):
 
 	def debugPrint(self, *args):
 		if DEBUG:
-			print(self.addr, '|', self.port, '\t', *args)
+				print(self.addr, '|', self.port, '\t', *args)
 
 	def run(self):
 		while not self.closed.is_set():
@@ -31,17 +41,14 @@ class SocketHook(threading.Thread):
 				if data is not None:
 					data = data.decode()
 					if data != '':
-						self.debugPrint("Recieved: ", data)
+						# self.debugPrint("Recieved: ", data)
 						if self.callback is not None:
-							self.callback(data)
+							self.callback(self, data)  # fixme added self, may break
 				else:
 					self.debugPrint("Empty data!")
 					break
-			except ConnectionResetError as e:
-				# print(e.)
+			except ConnectionResetError:
 				self.onFail()
-			except Exception as e:
-				raise (e)
 
 	def onFail(self):
 		self.close()
@@ -51,7 +58,7 @@ class SocketHook(threading.Thread):
 			if msg == '':
 				print("Cannot send empty data!")
 			else:
-				self.debugPrint("Sending: ", msg)
+				# self.debugPrint("Sending: ", msg)
 				if type(msg) is str:
 					msg = bytearray(msg, 'utf-8')
 				size = struct.pack('<I', len(msg))
@@ -60,16 +67,7 @@ class SocketHook(threading.Thread):
 				self.conn.sendall(msg)
 		except Exception as e:
 			self.close()
-			raise (e)
-
-	# def send_set(self, s):
-	# 	def set_default(obj):
-	# 		if isinstance(obj, set):
-	# 			return list(obj)
-	# 		raise TypeError
-	#
-	# 	data = json.dumps(s, default=set_default)
-	# 	self.send_msg(data.encode())
+			raise e
 
 	def recv_msg(self):
 		raw_msglen = self.recvall(4)
@@ -83,7 +81,7 @@ class SocketHook(threading.Thread):
 		data = b''
 		while len(data) < n:
 			packet = self.conn.recv(n - len(data))
-			self.debugPrint("Packet: ", packet)
+			# self.debugPrint("Packet: ", packet)
 			if not packet:
 				return None  # EOF
 			data += packet
@@ -94,8 +92,6 @@ class SocketHook(threading.Thread):
 		self.closed.set()
 		if self.host is not None:
 			self.host.close(self)
-		# self.conn.detach()
-		# self.conn.shutdown(socket.SHUT_RDWR)
 		self.conn.close()
 		self.debugPrint("Closed connection")
 

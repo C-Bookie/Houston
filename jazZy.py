@@ -24,6 +24,7 @@ import math
 import phue
 import time
 import random
+import queue
 
 import numpy as np
 
@@ -32,10 +33,14 @@ import pygame
 
 import matplotlib.pyplot as plt
 
+import connection
 
 deadzone = 0.25
 GEN_GRAPHS = False
 
+
+def sigmoid(x):
+	return 1 / (1 + np.exp(-x))
 
 def correctJoy(n):
 	if n < deadzone and n > -deadzone:
@@ -303,10 +308,6 @@ class MusicPlayer(threading.Thread):
 		s.p.terminate()
 
 
-def sigmoid(x):
-	return 1 / (1 + np.exp(-x))
-
-
 class LivePlayer(threading.Thread):
 	def __init__(s):
 		threading.Thread.__init__(s)
@@ -329,10 +330,11 @@ class LivePlayer(threading.Thread):
 
 
 class LightPlayer(threading.Thread):
-	def __init__(s):
+	def __init__(s, bridgeIP='192.168.1.227', mill=True):
 		threading.Thread.__init__(s)
-		s.b = phue.Bridge('192.168.1.227')
-		s.b.connect()
+		if bridgeIP is not None:
+			s.b = phue.Bridge(bridgeIP)
+			s.b.connect()
 
 		s.velocity = 4.7  # lower is brighter
 		s.curve = 2
@@ -350,7 +352,34 @@ class LightPlayer(threading.Thread):
 		# s.hueCo = (1 / 2)
 		# s.satCo = (1 / 3)
 
+		s.mill = mill
+		if s.mill:
+			def callback(client, data):
+				client.queue.put(connection.decode(data))
+
+			class Requester(connection.Client):
+				def __init__(s):
+					super().__init__()
+					s.queue = queue.Queue()
+					s.callback = callback
+
+				def request(s, data):
+					s.send_msg(connection.encode(data))
+
+			s.requester = Requester()
+			s.requester.start()
+
 	def gen_slice(s, sample, frame_rate):
+		if s.mill:
+			s.requester.request({
+				"sample": sample.tolist(),
+				"frame_rate": frame_rate
+			})
+			return s.requester.queue.get()
+		else:
+			return s.process_slice(sample, frame_rate)
+
+	def process_slice(s, sample, frame_rate):
 		scaler = 10**s.velocity
 
 		limit = scaler / frame_rate
@@ -420,12 +449,16 @@ class LightPlayer(threading.Thread):
 
 		s.map = []
 
-		for _slice_number in range(number_of_slices):
+		for slice_number in range(number_of_slices):
 			da = np.fromstring(music.readframes(sample_size), dtype=np.int16)
 			left, right = da[0::2], da[1::2]  # left and right channel
 			# sample = (left + right) / 2
 			sample = left
 			s.map += [s.gen_slice(sample, frame_rate)]
+
+			if slice_number % 100 == 0:
+				print(slice_number)
+
 		np.save('map.npy', s.map)
 
 	def load(s):
@@ -460,7 +493,7 @@ class LightPlayer(threading.Thread):
 
 
 def test1(path):
-	lPlayer = LightPlayer()
+	lPlayer = LightPlayer(None)
 	lPlayer.generate_map(path)
 
 	fig, ax1 = plt.subplots()
@@ -521,16 +554,18 @@ def test4():
 			lag += [-wait]
 
 
+
 if __name__ == '__main__':
 	path = "./audio/mass.wav"
 	# path = "./audio/kuzz.wav"	# run()
 	# path = "./audio/mozart.wav"
 	# path = "./audio/dubwise.wav"
 	# path = "./audio/birdy.wav"
-	# test1(path)
-	test2(path)
+	test1(path)
+	# test2(path)
 	# test3(path)
 	# test4()
+	# test5()
 
 
 
