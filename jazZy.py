@@ -119,7 +119,7 @@ class ButtonManager():
 
 
 #https://github.com/intxcc/pyaudio_portaudio/blob/master/example/echo.py
-def openInputStream(id=None, defaultframes=1024):
+def openInputStream(id=None, framerate=None):
 	useloopback = False
 
 	p = pyaudio.PyAudio()
@@ -173,22 +173,27 @@ def openInputStream(id=None, defaultframes=1024):
 	channelcount = device_info["maxInputChannels"] if (
 				device_info["maxOutputChannels"] < device_info["maxInputChannels"]) else device_info[
 		"maxOutputChannels"]
+	if framerate is None:
+		frames_per_buffer = 1024
+	else:
+		frames_per_buffer = int(device_info["defaultSampleRate"] / framerate)
+
 	stream = p.open(format=pyaudio.paInt16,
 					channels=channelcount,
 					rate=int(device_info["defaultSampleRate"]),
 					input=True,
-					frames_per_buffer=defaultframes,
+					frames_per_buffer=frames_per_buffer,
 					input_device_index=device_info["index"],
 					as_loopback=useloopback)
 
 	return stream, device_info
 
 
-def openOutpoutStream(id=None, defaultframes=1024):
+def openOutpoutStream(id=None, framerate=None):
 	p = pyaudio.PyAudio()
 
 	try:
-		default_device_index = p.get_default_output_device_info()
+		default_device_index = p.get_default_output_device_info()["index"]
 	except IOError:
 		default_device_index = -1
 
@@ -227,14 +232,42 @@ def openOutpoutStream(id=None, defaultframes=1024):
 
 	# Open stream
 	channelcount = device_info["maxInputChannels"] if (device_info["maxOutputChannels"] < device_info["maxInputChannels"]) else device_info["maxOutputChannels"]
+	if framerate is None:
+		frames_per_buffer = 1024
+	else:
+		frames_per_buffer = int(device_info["defaultSampleRate"] / framerate)
+
 	stream = p.open(format=pyaudio.paInt16,
 					channels=channelcount,
 					rate=int(device_info["defaultSampleRate"]),
 					output=True,
-					frames_per_buffer=defaultframes,
+					frames_per_buffer=frames_per_buffer,
 					output_device_index=device_info["index"])
 
 	return stream, device_info
+
+class Pacer():
+	def __init__(s, fr):
+		s.fr = fr
+		s.i = 0
+		s.lag = []
+		s.start = time.time()
+
+	def wait(s):
+		if s.i % s.fr == 0:
+			if len(s.lag) == 0:
+				avg_lag = 0
+			else:
+				avg_lag = sum(s.lag) / len(s.lag)
+			print(s.i // s.fr, ": \t", avg_lag)
+			s.lag = []
+
+		s.i += 1
+
+		wait = s.start + (s.i / s.fr) - time.time()
+		if wait > 0:
+			time.sleep(wait)
+		s.lag += [wait]
 
 class LiveInputStream(threading.Thread):
 	def __init__(s, stream, chunk):
@@ -250,7 +283,7 @@ class LiveInputStream(threading.Thread):
 class MusicPlayer(threading.Thread):
 	def __init__(s, path):
 		threading.Thread.__init__(s)
-		s.USE_WAV = False
+		s.USE_WAV = True
 		s.OUTPUT = True
 		if s.USE_WAV:
 			s.f = wave.open(path, 'r')
@@ -268,22 +301,32 @@ class MusicPlayer(threading.Thread):
 				s.bm = ButtonManager()
 
 	def run(s):
-		frame_rate = 10
+		if s.LIVE:
+			frame_rate = 10
+		else:
+			frame_rate = None
 
 		if s.USE_WAV:
 			s.sampleWidth = s.f.getsampwidth()
 			s.channels = s.f.getnchannels()
 			s.framerate = s.f.getframerate()
 		else:
-			in_stream, input_info = openInputStream(11, s.chunk)
+			in_stream, input_info = openInputStream(11, frame_rate)
 			s.channels = input_info["maxOutputChannels"]
 			s.sampleWidth = s.channels
 			s.framerate = int(input_info["defaultSampleRate"])
-			s.live_input_stream = LiveInputStream(in_stream, s.chunk)
-			s.live_input_stream.start()
+
+		if s.LIVE:
+			li = 0
+			s.chunk = s.framerate // frame_rate
+			s.live_mapper.start()
+			s.light_player.start()
+		else:
+			frame_rate = s.framerate // s.chunk
+
 
 		if s.OUTPUT:
-			out_stream, output_info = openOutpoutStream(9, s.chunk)
+			out_stream, output_info = openOutpoutStream(9, frame_rate)
 
 		mi = 0
 		if s.USE_WAV:
@@ -292,18 +335,14 @@ class MusicPlayer(threading.Thread):
 			mi = skip
 			next = s.f.readframes(s.chunk)
 		else:
+			s.live_input_stream = LiveInputStream(in_stream, s.chunk)
+			s.live_input_stream.start()
 			next = s.live_input_stream.queue.get()
 
 		if s.LIVE:
-			li = 0
-			sample_size = s.framerate // frame_rate
-			s.live_mapper.start()
-			s.light_player.start()
-
 			s.live_mapper.queue.put(next)
 
-			# if s.USE_WAV:
-			s.chunk = sample_size
+		pacer = Pacer(frame_rate)
 
 		while True:
 			data = next
@@ -312,7 +351,7 @@ class MusicPlayer(threading.Thread):
 			else:
 				next = s.live_input_stream.queue.get()
 			if s.LIVE:
-				if (mi+1)*s.chunk > li*sample_size:
+				if (mi+1)*s.chunk > li*s.chunk:
 					s.live_mapper.queue.join()
 					s.light_player.send_map_slice(s.live_mapper.slice)
 					if s.JOY:
@@ -336,10 +375,8 @@ class MusicPlayer(threading.Thread):
 			if not data:
 				break
 
-			if mi % 10 == 0:
-				print(mi)
-
-			mi += 1
+			pacer.wait()
+			mi +=1
 
 		out_stream.stop_stream()
 		out_stream.close()
@@ -458,7 +495,7 @@ class LightMapper():
 				def request(s, data):
 					s.send_msg(connection.encode(data))
 
-			s.requester = Requester()
+			s.requester = Requester('192.168.1.228')
 			s.requester.start()
 
 
@@ -603,48 +640,22 @@ def test3(path):
 
 def test4():
 	lPlayer = LightPlayer()
-	i = 0
-	start = time.time()
-	fr = 10
-	lag = []
+	pacer = Pacer(10)
 
 	while True:
-		if i%fr == 0:
-			if len(lag) == 0:
-				avg_lag = 0
-			else:
-				avg_lag = sum(lag)/len(lag)
-			print(i//fr, ": \t", avg_lag)
-			lag = []
-			slice = (
-				1,
-				0.5,
-				1
-			)
-		else:
-			slice = (
-				1 - ((i%fr)/fr),
-				0.5,
-				# 1 - (1/(i%fr))
-				1
-			)
-
-		lPlayer.send_map_slice(slice)
-		i += 1
-
-		wait = start + (i/fr) - time.time()
-		if wait > 0:
-			time.sleep(wait)
-		else:
-			lag += [-wait]
-
+		lPlayer.send_map_slice((
+			1 - ((pacer.i % pacer.fr) / pacer.fr),
+			0.5,
+			1
+		))
+		pacer.wait()
 
 
 if __name__ == '__main__':
-	# path = "./audio/mass.wav"
+	path = "./audio/mass.wav"
 	# path = "./audio/kuzz.wav"	# run()
 	# path = "./audio/mozart.wav"
-	path = "./audio/dubwise.wav"
+	# path = "./audio/dubwise.wav"
 	# path = "./audio/birdy.wav"
 	# test1(path)
 	# test2(path)
