@@ -288,7 +288,6 @@ class MusicPlayer(threading.Thread):
 		if s.USE_WAV:
 			s.f = wave.open(path, 'r')
 
-
 		s.chunk = 1024
 		s.p = pyaudio.PyAudio()
 		s.LIVE = True
@@ -652,7 +651,7 @@ def test4():
 
 
 if __name__ == '__main__':
-	path = "./audio/mass.wav"
+	path = "./audio/mass48.wav"
 	# path = "./audio/kuzz.wav"	# run()
 	# path = "./audio/mozart.wav"
 	# path = "./audio/dubwise.wav"
