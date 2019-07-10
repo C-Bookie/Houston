@@ -25,29 +25,15 @@ class Hand(session.Node):
 	def end(s, exception=False):  # todo review
 		s.session.end()
 
+
 class Show(session.Session):
 	def __init__(s, manager, name):
 		super().__init__(manager, name)
+		s.script = None
 
-
-class ShowHost(session.SessionManager):
-	def __init__(s, port=8089):
-		super().__init__(port)
-
-###
-
-def run():
-	shows = []
-
-	# adding a show
-	with open("shows.yaml", 'r') as showList:
-		shows.append(Show(yaml.load(showList)["room1"]))
-
-
-class Show():
-	def __init__(self, showScript):
-		self.script = showScript
-		self.reset()
+	def load_script(s, room="room1"):
+		with open("shows.yaml", 'r') as showList:
+			s.script = yaml.load(showList)[room]
 
 	# reset all IOs and states
 	def reset(self):
@@ -55,6 +41,7 @@ class Show():
 			for feature in self.script["panels"][node]["out"]:
 				if "default" in self.script["panels"]:
 					pass  # todo send MQTT command, topic: "show/node", finger, self.script["panels"][node][finger]["default"]
+
 
 	# reload a shows state from an SQL database that the show host will auto save to periodically
 	def reload(self):
@@ -65,5 +52,13 @@ class Show():
 		pass
 
 
+class ShowHost(session.SessionManager):
+	def __init__(s, port=8089):
+		super().__init__(port)
+		s.node_hook = Hand
+		s.session_hook = Show
+
+
 if __name__ == "__main__":
-	run()
+	host = ShowHost()
+	host.run()
