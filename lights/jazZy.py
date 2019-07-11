@@ -231,7 +231,8 @@ def openOutpoutStream(id=None, framerate=None):
 		exit()
 
 	# Open stream
-	channelcount = device_info["maxInputChannels"] if (device_info["maxOutputChannels"] < device_info["maxInputChannels"]) else device_info["maxOutputChannels"]
+	# channelcount = device_info["maxInputChannels"] if (device_info["maxOutputChannels"] < device_info["maxInputChannels"]) else device_info["maxOutputChannels"]
+	channelcount = 2
 	if framerate is None:
 		frames_per_buffer = 1024
 	else:
@@ -290,19 +291,22 @@ class MusicPlayer(threading.Thread):
 
 		s.chunk = 1024
 		s.p = pyaudio.PyAudio()
-		s.LIVE = True
+		s.LIVE = False
+		s.MILL = True
 		s.JOY = False
 		if s.LIVE:
 			# s.lf = wave.open(path, 'r')
-			s.live_mapper = LiveMapper()
+			s.live_mapper = LiveMapper(s.MILL)
 			s.light_player = LightPlayer()
 			if s.JOY:
 				s.bm = ButtonManager()
 
+
 	def run(s):
-		if s.LIVE:
-			frame_rate = 10
-		else:
+		frame_rate = 10
+		pacer = Pacer(frame_rate)
+
+		if not s.LIVE:
 			frame_rate = None
 
 		if s.USE_WAV:
@@ -310,7 +314,7 @@ class MusicPlayer(threading.Thread):
 			s.channels = s.f.getnchannels()
 			s.framerate = s.f.getframerate()
 		else:
-			in_stream, input_info = openInputStream(11, frame_rate)
+			in_stream, input_info = openInputStream(8, frame_rate)
 			s.channels = input_info["maxOutputChannels"]
 			s.sampleWidth = s.channels
 			s.framerate = int(input_info["defaultSampleRate"])
@@ -325,7 +329,7 @@ class MusicPlayer(threading.Thread):
 
 
 		if s.OUTPUT:
-			out_stream, output_info = openOutpoutStream(9, frame_rate)
+			out_stream, output_info = openOutpoutStream(8, frame_rate)
 
 		mi = 0
 		if s.USE_WAV:
@@ -341,7 +345,6 @@ class MusicPlayer(threading.Thread):
 		if s.LIVE:
 			s.live_mapper.queue.put(next)
 
-		pacer = Pacer(frame_rate)
 
 		while True:
 			data = next
@@ -384,9 +387,9 @@ class MusicPlayer(threading.Thread):
 
 
 class LightPlayer(threading.Thread):
-	def __init__(s, bridgeIP=None, screen=True):
+	def __init__(s, bridgeIP=None, screen=False):
 		threading.Thread.__init__(s)
-		# bridgeIP = '192.168.1.227'
+		# bridgeIP = '192.168.1.211'
 		if bridgeIP is not None:
 			s.b = phue.Bridge(bridgeIP)
 			s.b.connect()
@@ -414,7 +417,7 @@ class LightPlayer(threading.Thread):
 				'sat': int(slice[1] * 254),
 				'bri': int(slice[2] * 254),
 			}
-			s.b.set_light('cal', command)
+			s.b.set_light('conservitory', command)
 			# print(command)
 
 		if s.display is not None:
@@ -487,14 +490,15 @@ class LightMapper():
 
 			class Requester(connection.Client):
 				def __init__(s):
-					super().__init__()
+					super().__init__('192.168.1.138')
+					# super().__init__('192.168.1.101')
 					s.queue = queue.Queue()
 					s.callback = callback
 
 				def request(s, data):
 					s.send_msg(connection.encode(data))
 
-			s.requester = Requester('192.168.1.228')
+			s.requester = Requester()
 			s.requester.start()
 
 
@@ -592,8 +596,8 @@ class LightMapper():
 
 
 class LiveMapper(threading.Thread, LightMapper):
-	def __init__(s):
-		LightMapper.__init__(s)
+	def __init__(s, mill=False):
+		LightMapper.__init__(s, mill)
 		threading.Thread.__init__(s)
 		s.fr = 10
 		s.slice = (0, 0, 0)
@@ -649,17 +653,48 @@ def test4():
 		))
 		pacer.wait()
 
+def test5():
+	frame_rate = None
+	chunk = 10240
+
+	USE_WAV = True
+	OUTPUT = True
+	if USE_WAV:
+		f = wave.open(path, 'r')
+	else:
+		in_stream, input_info = openInputStream()
+		live_input_stream = LiveInputStream(in_stream, chunk)
+		live_input_stream.start()
+
+	out_stream, output_info = openOutpoutStream(8, chunk)
+
+	while True:
+		if USE_WAV:
+			data = f.readframes(chunk)
+		else:
+			data = live_input_stream.queue.get()
+		out_stream.write(data)
+
+def test6():
+	bridgeIP = '192.168.1.211'
+	b = phue.Bridge(bridgeIP)
+	b.connect()
+	api = b.get_api()
+	print("moo")
+
 
 if __name__ == '__main__':
-	path = "./audio/mass48.wav"
+	path = "./audio/mass.wav"
 	# path = "./audio/kuzz.wav"	# run()
 	# path = "./audio/mozart.wav"
 	# path = "./audio/dubwise.wav"
 	# path = "./audio/birdy.wav"
+
 	# test1(path)
-	# test2(path)
-	test3(path)
+	test2(path)
+	# test3(path)
 	# test4()
+	# test5()
 
 
 

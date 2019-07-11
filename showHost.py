@@ -57,6 +57,15 @@ class ShowHost(session.SessionManager):
 		super().__init__(port)
 		s.node_hook = Hand
 		s.session_hook = Show
+		s.make_session("room1")
+
+	def run(s):
+		while True:
+			conn, address = s.sock.accept()
+			node = s.node_hook(conn, s)
+			node.address = address  # todo review
+			s.join_session(node, "room1")
+			node.start()
 
 
 if __name__ == "__main__":

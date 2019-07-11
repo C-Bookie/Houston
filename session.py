@@ -90,6 +90,12 @@ class SessionManager(connection.Host):
 			s.join_session(node, node.address)
 			node.start()
 
+	def make_session(s, name):
+		s.sessions[name] = s.session_hook(s, name)
+
+	def remove_session(s, name):
+		del s.sessions[name]  # todo review
+
 	def move_session(s, node: Node, session: Session):
 		s.leave_session(node)
 		s.join_session(node, session.name)
@@ -104,16 +110,11 @@ class SessionManager(connection.Host):
 	def leave_session(s, node: Node):
 		node.session.remove_node()
 		if len(node.session.nodes) == 0:
-			del s.sessions[node.session.name]  # todo review
+			s.remove_session(node.session.name)  # todo review
 		node.session = None
 
 	def get_sessions(s):
 		return s.sessions.keys()
 
-	def close(s, node: Node=None):  # todo rename to leave_lobby()
-		if node is not None:  # fixme deal with else
-			s.sessions[node.session].remove_node(node)
-			if len(s.sessions[node.session].nodes) == 0:
-				del s.sessions[node.session]
 
 

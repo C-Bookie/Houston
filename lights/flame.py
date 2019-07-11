@@ -8,7 +8,6 @@ import math
 import random
 
 
-
 MODEL_PATH = "./models/test.h5"  # path to save/load the trained model to/from
 SAVE = True  # whether to save the trained model
 LOAD = False  # whether to load a saved model
@@ -136,8 +135,8 @@ class Trainer:  # a class for repetitive model training
                 # actions = np.array(holdem.safe_actions(community_infos, n_seats=self.env.n_seats))
 
 
-			reference = jazZy
-            scores += [get_score(reference)]
+			# reference = jazZy
+            # scores += [get_score(reference)]
             print("M" if self.useModel else "T", "|cycle: ", i, " | ", score)
             for data in game_memory:
                 training_data += [[data[0], data[1], score]]
