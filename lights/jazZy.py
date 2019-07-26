@@ -11,6 +11,7 @@
 
 #add TCP music stream
 #intergrate into huston
+#research https://gist.github.com/nabeel913/344fa7a501f9eef6d6090aa20b00d954
 
 import colorsys
 import sys
@@ -284,15 +285,15 @@ class LiveInputStream(threading.Thread):
 class MusicPlayer(threading.Thread):
 	def __init__(s, path):
 		threading.Thread.__init__(s)
-		s.USE_WAV = True
+		s.USE_WAV = False
 		s.OUTPUT = True
 		if s.USE_WAV:
 			s.f = wave.open(path, 'r')
 
 		s.chunk = 1024
 		s.p = pyaudio.PyAudio()
-		s.LIVE = False
-		s.MILL = True
+		s.LIVE = True
+		s.MILL = False
 		s.JOY = False
 		if s.LIVE:
 			# s.lf = wave.open(path, 'r')
@@ -314,7 +315,7 @@ class MusicPlayer(threading.Thread):
 			s.channels = s.f.getnchannels()
 			s.framerate = s.f.getframerate()
 		else:
-			in_stream, input_info = openInputStream(8, frame_rate)
+			in_stream, input_info = openInputStream(9, frame_rate)
 			s.channels = input_info["maxOutputChannels"]
 			s.sampleWidth = s.channels
 			s.framerate = int(input_info["defaultSampleRate"])
@@ -329,7 +330,7 @@ class MusicPlayer(threading.Thread):
 
 
 		if s.OUTPUT:
-			out_stream, output_info = openOutpoutStream(8, frame_rate)
+			out_stream, output_info = openOutpoutStream(9, frame_rate)
 
 		mi = 0
 		if s.USE_WAV:
@@ -373,7 +374,7 @@ class MusicPlayer(threading.Thread):
 					s.live_mapper.queue.put(next)
 					li += 1
 			if s.OUTPUT:
-				out_stream.write(data)
+				out_stream.write(data * 0.5)
 			if not data:
 				break
 
@@ -387,9 +388,9 @@ class MusicPlayer(threading.Thread):
 
 
 class LightPlayer(threading.Thread):
-	def __init__(s, bridgeIP=None, screen=False):
+	def __init__(s, bridgeIP=None, screen=True):
 		threading.Thread.__init__(s)
-		# bridgeIP = '192.168.1.211'
+		bridgeIP = '192.168.1.211'
 		if bridgeIP is not None:
 			s.b = phue.Bridge(bridgeIP)
 			s.b.connect()
@@ -417,7 +418,8 @@ class LightPlayer(threading.Thread):
 				'sat': int(slice[1] * 254),
 				'bri': int(slice[2] * 254),
 			}
-			s.b.set_light('conservitory', command)
+			s.b.set_light('cal', command)
+			# s.b.set_light('conservitory', command)
 			# print(command)
 
 		if s.display is not None:
@@ -691,8 +693,8 @@ if __name__ == '__main__':
 	# path = "./audio/birdy.wav"
 
 	# test1(path)
-	test2(path)
-	# test3(path)
+	# test2(path)
+	test3(path)
 	# test4()
 	# test5()
 
