@@ -29,54 +29,22 @@ class Hand(session.Node):
 class Show(session.Session):
 	def __init__(s, manager, name):
 		super().__init__(manager, name)
-		s.script = None
-
-	def load_script(s, room="room1"):
-		with open("shows.yaml", 'r') as showList:
-			s.script = yaml.load(showList)[room]
-
-	# reset all IOs and states
-	def reset(self):
-		for node in self.script["panels"]:
-			for feature in self.script["panels"][node]["out"]:
-				if "default" in self.script["panels"]:
-					pass  # todo send MQTT command, topic: "show/node", finger, self.script["panels"][node][finger]["default"]
-
-	# reload a shows state from an SQL database that the show host will auto save to periodically
-	def reload(self):
-		pass
-
-	# begin timer
-	def start(self):
-		pass
-
+		s.prop_list = []
+		s.prop_status = {}
 
 	def run(s):
 		while not s.closeAll.is_set():
-			answerSpace = s.response.get()
+			response = s.response.get()
 			# dprint("answer: " + str(answerSpace))
 
-			if answerSpace["type"] == "entryList":
-				s.begin(answerSpace["entryList"])
-				s.GI.setName("GameInstance-" + s.name)
-				i = 0
-				for player in s.nodes:
-					while answerSpace["entryList"]["players"][i]["MPID"] < 0:
-						i += 1
-					player.ID = answerSpace["entryList"]["players"][i]["MPID"]
-					i += 1
+			if response["type"] == "new_node":
+				if response["content"]["alias"] in s.prop_list:
+					s.add_node(s.manager.unassigned[response["content"]["alias"]])
+					del s.manager.unassigned[response["content"]["alias"]]
 
-			elif answerSpace["type"] == "answer":
-				if answerSpace["answer"] is None:
-					s.toPython.put(list())
-				else:
-					s.toPython.put(answerSpace["answer"])
-
-			elif answerSpace["type"] == "pass_question":
-				s.toPython.put(s.auto_answer(answerSpace["pass_question"]))
 
 			else:
-				raise Exception("Unrecognised type: " + answerSpace["type"])
+				raise Exception("Unrecognised type: " + response["type"])
 
 
 class ShowHost(session.SessionManager):
@@ -84,8 +52,17 @@ class ShowHost(session.SessionManager):
 		super().__init__(port)
 		s.session_hook = Show
 		s.node_hook = Hand
-		s.make_session("room1")
+		s.unassigned = []
 
+	def run(s):
+		while True:
+			conn, address = s.sock.accept()
+			assert address not in s.sessions
+			node = s.node_hook(conn, s)
+			node.address = address  # todo review
+			s.unassigned += [node]
+
+			node.start()
 
 
 if __name__ == "__main__":

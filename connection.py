@@ -20,19 +20,21 @@ def decode(data):
 
 class SocketHook(threading.Thread):
 	closed = threading.Event()
-	def __init__(self, conn, callback=None, host=None):
+	def __init__(self, conn, host=None):
 		threading.Thread.__init__(self)
 		self.conn = conn
-		self.callback = callback
 		self.host = host
 		self.closed = threading.Event()
 		self.addr, self.port = self.conn.getpeername()
-		self.setName("Thread-" + self.addr + ":" + str(self.port))
+		self.setName("Connection-" + self.addr + ":" + str(self.port))
 		self.debugPrint("Connection opened")
 
 	def debugPrint(self, *args):
 		if DEBUG:
 				print(self.addr, '|', self.port, '\t', *args)
+
+	def callback(self, data):
+		pass
 
 	def run(self):
 		while not self.closed.is_set():
@@ -41,9 +43,9 @@ class SocketHook(threading.Thread):
 				if data is not None:
 					data = data.decode()
 					if data != '':
-						# self.debugPrint("Recieved: ", data)
+						self.debugPrint("Recieved: ", data)
 						if self.callback is not None:
-							self.callback(self, data)  # fixme added self, may break
+							self.callback(data)  # fixme added self, may break
 				else:
 					self.debugPrint("Empty data!")
 					break
@@ -58,7 +60,7 @@ class SocketHook(threading.Thread):
 			if msg == '':
 				print("Cannot send empty data!")
 			else:
-				# self.debugPrint("Sending: ", msg)
+				self.debugPrint("Sending: ", msg)
 				if type(msg) is str:
 					msg = bytearray(msg, 'utf-8')
 				size = struct.pack('<I', len(msg))
