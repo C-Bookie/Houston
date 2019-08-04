@@ -10,7 +10,7 @@ width = 1000
 
 def mandelbrot(r, i):
 	c = complex(r, i)
-	z = 0
+	z = 0     
 	n = 0
 	MAX_ITER = 100
 	while abs(z) <= 2 and n < MAX_ITER:
