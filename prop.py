@@ -45,21 +45,26 @@ class Prop(connection.Client):
 
         data = connection.encode({
             "type": "move_session",
-            "content": 2077
+            "args": [
+                2077
+            ]
         })
         s.send_msg(data)
 
     def callback(s, data):
         response = connection.decode(data)
-        if response["type"] == "broadcast":
+        if response["type"] == "state_change":
             s.state = response["content"]["state"]
 
     def send_state(s, state):
         data = connection.encode({
             "type": "broadcast",
-            "content": {
-                "state": state
-            }
+            "args": [{
+                "type": "state_change",
+                "content": {
+                    "state": state
+                }
+            }]
         })
         s.send_msg(data)
 

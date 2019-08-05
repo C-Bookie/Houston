@@ -7,52 +7,59 @@ import serial
 
 DEBUG = True
 
+
 def encode(data):
 	def set_default(obj):
 		if isinstance(obj, set):
 			return list(obj)
 		return obj
-		#raise TypeError
+		# raise TypeError
 	return json.dumps(data, default=set_default)
+
 
 def decode(data):
 	return json.loads(data)
 
+
 class SocketHook(threading.Thread):
 	closed = threading.Event()
+
 	def __init__(self, conn, host=None):
 		threading.Thread.__init__(self)
 		self.conn = conn
 		self.host = host
-		self.closed = threading.Event()
+		self.closing = threading.Event()
 		self.addr, self.port = self.conn.getpeername()
 		self.setName("Connection-" + self.addr + ":" + str(self.port))
-		self.debugPrint("Connection opened")
+		self.debug_print("Connection opened")
 
-	def debugPrint(self, *args):
+	def debug_print(self, *args):
 		if DEBUG:
-				print(self.addr, '|', self.port, '\t', *args)
+			print(self.addr, '|', self.port, '\t', *args)
 
 	def callback(self, data):
 		pass
 
 	def run(self):
-		while not self.closed.is_set():
-			try:
-				data = self.recv_msg()
-				if data is not None:
-					data = data.decode()
-					if data != '':
-						self.debugPrint("Recieved: ", data)
-						if self.callback is not None:
-							self.callback(data)  # fixme added self, may break
-				else:
-					self.debugPrint("Empty data!")
-					break
-			except ConnectionResetError:
-				self.onFail()
+		while not self.closing.is_set():
+			self.loop()
 
-	def onFail(self):
+	def loop(self):
+		try:
+			data = self.recv_msg()
+			if data is not None:
+				data = data.decode()
+				if data != '':
+					self.debug_print("Received: ", data)
+					if self.callback is not None:
+						self.callback(data)  # fixme added self, may break
+			else:
+				self.debug_print("Empty data!")
+				self.close()
+		except ConnectionResetError:
+			self.on_fail()
+
+	def on_fail(self):
 		self.close()
 
 	def send_msg(self, msg):
@@ -60,7 +67,7 @@ class SocketHook(threading.Thread):
 			if msg == '':
 				print("Cannot send empty data!")
 			else:
-				self.debugPrint("Sending: ", msg)
+				self.debug_print("Sending: ", msg)
 				if type(msg) is str:
 					msg = bytearray(msg, 'utf-8')
 				size = struct.pack('<I', len(msg))
@@ -72,30 +79,30 @@ class SocketHook(threading.Thread):
 			raise e
 
 	def recv_msg(self):
-		raw_msglen = self.recvall(4)
-		if not raw_msglen:
+		raw_msg_len = self.recv_all(4)
+		if not raw_msg_len:
 			return None
-		msglen = struct.unpack('<I', raw_msglen)[0]
-		# self.debugPrint("Length: ", msglen)
-		return self.recvall(msglen)
+		msg_len = struct.unpack('<I', raw_msg_len)[0]
+		# self.debug_print("Length: ", msg_len)
+		return self.recv_all(msg_len)
 
-	def recvall(self, n):
+	def recv_all(self, n):
 		data = b''
 		while len(data) < n:
 			packet = self.conn.recv(n - len(data))
-			# self.debugPrint("Packet: ", packet)
+			# self.debug_print("Packet: ", packet)
 			if not packet:
 				return None  # EOF
 			data += packet
 		return data
 
 	def close(self):
-		self.debugPrint("Closing connection...")
+		self.debug_print("Closing connection...")
 		self.closed.set()
 		if self.host is not None:
 			self.host.close(self)
 		self.conn.close()
-		self.debugPrint("Closed connection")
+		self.debug_print("Closed connection")
 
 
 class Host(threading.Thread):
@@ -111,13 +118,17 @@ class Host(threading.Thread):
 
 	def run(self):
 		while True:
-			conn, address = self.sock.accept()
-			connection = SocketHook(conn, self.callback, self)
-			connection.address = address
-			self.connections += [connection]
-			connection.start()
+			self.loop()
 
-	def boradcast(self, msg):
+	def loop(self):
+		conn, address = self.sock.accept()
+		connection = SocketHook(conn, self)
+		connection.callback = self.callback
+		connection.address = address
+		self.connections += [connection]
+		connection.start()
+
+	def broadcast(self, msg):
 		for conn in self.connections:
 			conn.send_msg(msg)
 
@@ -145,59 +156,60 @@ class Client(SocketHook):
 				print("Connected")
 				break
 			except ConnectionRefusedError:
-				print("Reconecting...")
-			except Exception as e:
-				raise e  # fixme handel reconection
+				print("Reconnecting...")
+			except Exception as exc:
+				raise exc  # fixme handel reconnection
 
-	def onFail(self):
+	def on_fail(self):
 		print("Connection lost")
 		self.connect()
 
 
 class SerialHook(threading.Thread):
-	def __init__(self, port, bandrate=9600, callback=None):
+	def __init__(self, port, baud_rate=9600, callback=None):
 		threading.Thread.__init__(self)
-		self.ser = serial.Serial(port, bandrate)
+		self.ser = serial.Serial(port, baud_rate)
 		self.callback = callback
+		self.closed = threading.Event()
 
 	def run(self):
 		try:
-			while True:
-				self.ser.inWaiting()
-				self.data = self.ser.readline()
-				if self.data is not None:
-					try:
-						self.data = self.data.decode()
-					except UnicodeDecodeError:
-						continue
-
-					while len(self.data) > 0 and self.data[-1] in ['\r', '\n']:
-						self.data = self.data[:-1]
-
-					if len(self.data) == 0:
-						print("Empty string")
-					else:
-						print("(", self.ser.port, ")\tRecieved: ", self.data)
-						if self.callback is not None:
-							self.callback(self.data)
-				else:
-					print("\tEmpty data!")
-					break
-		except Exception as e:
-			raise (e)
+			while not self.closed.is_set():
+				self.loop()
+		except Exception as exc:
+			raise exc
 		finally:
 			self.__del__()
 
-	def sendMsg(self, msg):
+	def loop(self):
+		self.ser.inWaiting()
+		data = self.ser.readline()
+		if data is not None:
+			data = data.decode()
+
+			while len(data) > 0 and data[-1] in ['\r', '\n']:
+				data = data[:-1]
+
+			if len(data) == 0:
+				print("Empty string")
+			else:
+				print("(", self.ser.port, ")\tReceived: ", data)
+				if self.callback is not None:
+					self.callback(data)
+		else:
+			print("\tEmpty data!")
+			self.closed.set()  # todo replace with self.close()
+
+	def send_msg(self, msg):
 		print("(", self.ser.port, ")\tSending: ", msg)
 		if type(msg) is str:
 			msg = bytearray(msg, 'utf-8')
 		try:
 			self.ser.write(msg)
 			self.ser.flush()
-		except Exception as e:
+		except Exception as exc:
 			self.__del__()
-			raise (e)
+			raise exc
 
 	def __del__(self):
 		self.ser.close()
