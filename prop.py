@@ -1,47 +1,45 @@
-import threading
-
 import pygame
-import connection
-import session
 
-class Screen():
-    def __init__(s, client):
-        s.client = client
-        s.height = 300
-        s.width = 400
+import connection
+
+
+class Screen:
+    def __init__(self, client):
+        self.client = client
+        self.height = 300
+        self.width = 400
 
         pygame.init()
-        s.screen = pygame.display.set_mode((s.width, s.height))  # , pygame.FULLSCREEN)
+        self.screen = pygame.display.set_mode((self.width, self.height))  # , pygame.FULLSCREEN)
         pygame.display.set_caption('jazZy')
 
-        s.background = pygame.Surface(s.screen.get_size())
-        s.background = s.background.convert()
+        self.background = pygame.Surface(self.screen.get_size())
+        self.background = self.background.convert()
 
-
-    def run(s):
+    def run(self):
         while True:
             events = pygame.event.get()
             for event in events:
                 if event.type == pygame.KEYDOWN:
-                    s.client.send_state(True)
+                    self.client.send_state(True)
                 if event.type == pygame.KEYUP:
-                    s.client.send_state(False)
+                    self.client.send_state(False)
                 if event.type == pygame.QUIT:
                     return
 
-            if s.client.state:
-                s.background.fill((0, 0, 0))
+            if self.client.state:
+                self.background.fill((0, 0, 0))
             else:
-                s.background.fill((250, 250, 250))
+                self.background.fill((250, 250, 250))
 
-            s.screen.blit(s.background, (0, 0))
+            self.screen.blit(self.background, (0, 0))
             pygame.display.flip()
 
 
 class Prop(connection.Client):
-    def __init__(s):
+    def __init__(self):
         super().__init__()
-        s.state = False
+        self.state = False
 
         data = connection.encode({
             "type": "move_session",
@@ -49,14 +47,14 @@ class Prop(connection.Client):
                 2077
             ]
         })
-        s.send_msg(data)
+        self.send_msg(data)
 
-    def callback(s, data):
+    def callback(self, data):
         response = connection.decode(data)
         if response["type"] == "state_change":
-            s.state = response["content"]["state"]
+            self.state = response["content"]["state"]
 
-    def send_state(s, state):
+    def send_state(self, state):
         data = connection.encode({
             "type": "broadcast",
             "args": [{
@@ -66,7 +64,7 @@ class Prop(connection.Client):
                 }
             }]
         })
-        s.send_msg(data)
+        self.send_msg(data)
 
 
 if __name__ == "__main__":

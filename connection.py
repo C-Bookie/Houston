@@ -32,13 +32,20 @@ class SocketHook(threading.Thread):
 		self.addr, self.port = self.conn.getpeername()
 		self.setName("Connection-" + self.addr + ":" + str(self.port))
 		self.debug_print("Connection opened")
+		self.white_list_functions = []
 
 	def debug_print(self, *args):
 		if DEBUG:
 			print(self.addr, '|', self.port, '\t', *args)
 
-	def callback(self, data):
-		pass
+	def callback(self, msg):  # todo review
+		response = decode(msg)
+		if "type" in response and response["type"] in self.white_list_functions:
+			function = getattr(self, response["type"])
+			function(*response["args"])
+		else:
+#			raise self.IllegalResponse("Request unrecognised by server: " + response["type"], response)  # fixme
+			raise Exception("Request unrecognised by server: " + str(response))
 
 	def run(self):
 		while not self.closing.is_set():
@@ -46,13 +53,13 @@ class SocketHook(threading.Thread):
 
 	def loop(self):
 		try:
-			data = self.recv_msg()
-			if data is not None:
-				data = data.decode()
-				if data != '':
-					self.debug_print("Received: ", data)
+			raw_data = self.recv_msg()
+			if raw_data is not None:
+				msg = raw_data.decode()
+				if msg != '':
+					self.debug_print("Received: ", msg)
 					if self.callback is not None:
-						self.callback(data)  # fixme added self, may break
+						self.callback(msg)  # fixme added self, may break
 			else:
 				self.debug_print("Empty data!")
 				self.close()
@@ -61,6 +68,10 @@ class SocketHook(threading.Thread):
 
 	def on_fail(self):
 		self.close()
+
+	def send_data(self, data):
+		msg = encode(data)
+		self.send_msg(msg)
 
 	def send_msg(self, msg):
 		try:
@@ -214,3 +225,8 @@ class SerialHook(threading.Thread):
 	def __del__(self):
 		self.ser.close()
 		print("Closed connection")
+
+
+if __name__ == "__main__":
+	host = Host()
+	host.run()

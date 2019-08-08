@@ -1,43 +1,56 @@
-import json
-
 import connection
-import time
 
 
+class RCController(connection.Client):
+	def __init__(self):
+		super().__init__()
+		self.send_data({  # todo add to reconnect
+			"type": "move_session",
+			"args": [
+				2077
+			]
+		})
+		self.send_data({  # todo add to reconnect
+			"type": "rename_node",
+			"args": [
+				"rc_host"
+			]
+		})
 
-def reciever(data):
-	data = json.loads(data)
-	x = data["axis"][0]
-	y = -data["axis"][1]
-	left = 1
-	right = 1
+		self.white_list_functions += [
+			"joy_position"
+		]
 
-	if x < 0:
-		left -= abs(x)
-	else:
-		right -= x
+	def joy_position(self, data):
+		x = data["axis"][0]
+		y = -data["axis"][1]
+		left = 1
+		right = 1
 
+		if x < 0:
+			left -= abs(x)
+		else:
+			right -= x
 
-	left *= y
-	right *= y
-	left *= 1023
-	right *= 1023
-	left = (int)(left)
-	right = (int)(right)
+		left *= y
+		right *= y
+		left *= 1023
+		right *= 1023
+		left = (int)(left)
+		right = (int)(right)
 
-	msg = str(left)+'|'+str(right)+'\n'
-	# arduino.sendMsg(msg)
-	host.boradcast(msg)
+		command = str(left)+'|'+str(right)+'\n'
 
-host = connection.Host(callback=reciever)
+		self.send_data({
+			"type": "broadcast",
+			"args": [
+				command,
+				"rc_car"
+			]
+		})
+
 
 if __name__ == "__main__":
+	host = RCController()
 	host.start()
-
-	# arduino = connection.SerialHook('COM12', 9600)
-	# arduino.ser.flushInput()
-	# arduino.ser.flushOutput()
-	# arduino.start()
-
-	while True:
-			time.sleep(1)
+	host.join()

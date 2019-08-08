@@ -1,52 +1,83 @@
-import json
-
-import connection
 import time
 
 import pygame
 
-deadzone = 0.25
+import connection
 
-def correctJoy(n):
-	if n < deadzone and n > -deadzone:
+dead_zone = 0.25
+
+
+def correct_joy(n):
+	if -dead_zone < n < dead_zone:
 		return 0.
 	if n < 0:
 		return -n**2
 	return n**2
 
-if __name__ == '__main__':
 
-	pygame.init()
-	# surface = pygame.display.set_mode((400, 300), 0, 32)
+class Joystick(connection.Client):
+	def __init__(self):
+		super().__init__()
+		self.send_data({
+			"type": "move_session",
+			"args": [
+				2077
+			]
+		})
+		self.send_data({  # todo add to reconnect
+			"type": "rename_node",
+			"args": [
+				"rc_joy"
+			]
+		})
 
-	pygame.joystick.init()
-	joysticks = []
-	for i in range(pygame.joystick.get_count()):
-		joystick = pygame.joystick.Joystick(i)
-		joystick.init()
-		print("Initialised: ", joystick.get_name())
-		joysticks += [joystick]
+		pygame.init()
+		# surface = pygame.display.set_mode((400, 300), 0, 32)
 
-	client = connection.Client()
-	client.start()
+		pygame.joystick.init()
+		self.joysticks = []
+		for i in range(pygame.joystick.get_count()):
+			joystick = pygame.joystick.Joystick(i)
+			joystick.init()
+			print("Initialised: ", joystick.get_name())
+			self.joysticks += [joystick]
 
-	i = 0
-	while True:
+	def run(self):
+		while True:
+			self.loop()
+
+
+	def loop(self):
 		pygame.event.pump()
 		# msg = input(">")
 		# msg = "Cycle: " + str(i)
 		# print("Sending: ", msg)
 		# client.send_msg(bytearray(msg, 'utf-8'))
 
-		temp = {
-			"axis": [joysticks[0].get_axis(i) for i in range(joysticks[0].get_numaxes())],
-			"balls": [joysticks[0].get_ball(i) for i in range(joysticks[0].get_numballs())],
-			"buttons": [joysticks[0].get_button(i) for i in range(joysticks[0].get_numbuttons())],
-			"hats": [joysticks[0].get_hat(i) for i in range(joysticks[0].get_numhats())],
+		position = {
+			"axis": [self.joysticks[0].get_axis(i) for i in range(self.joysticks[0].get_numaxes())],
+			"balls": [self.joysticks[0].get_ball(i) for i in range(self.joysticks[0].get_numballs())],
+			"buttons": [self.joysticks[0].get_button(i) for i in range(self.joysticks[0].get_numbuttons())],
+			"hats": [self.joysticks[0].get_hat(i) for i in range(self.joysticks[0].get_numhats())],
 		}
-		print(temp)
-		msg = json.dumps(temp)
-		client.send_msg(msg)
+
+		self.send_data({
+			"type": "broadcast",
+			"args": [
+				{
+					"type": "joy_position",
+					"args": [
+						position
+					]
+				},
+				"rc_host"
+			]
+		})
 
 		time.sleep(0.1)
-		i += 1
+
+
+if __name__ == '__main__':
+	joy = Joystick()
+	joy.start()
+	joy.join()
