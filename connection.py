@@ -63,7 +63,7 @@ class SocketHook(threading.Thread):
 			else:
 				self.debug_print("Empty data!")
 				self.close()
-		except ConnectionResetError:
+		except socket.error as esc:
 			self.on_fail()
 
 	def on_fail(self):
@@ -101,7 +101,7 @@ class SocketHook(threading.Thread):
 		data = b''
 		while len(data) < n:
 			packet = self.conn.recv(n - len(data))
-			# self.debug_print("Packet: ", packet)
+			self.debug_print("Packet: ", packet)
 			if not packet:
 				return None  # EOF
 			data += packet
@@ -109,7 +109,7 @@ class SocketHook(threading.Thread):
 
 	def close(self):
 		self.debug_print("Closing connection...")
-		self.closed.set()
+		self.closing.set()
 		if self.host is not None:
 			self.host.close(self)
 		self.conn.close()

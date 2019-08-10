@@ -74,7 +74,7 @@ class Joystick(connection.Client):
 			]
 		})
 
-		time.sleep(0.1)
+		time.sleep(0.2)
 
 
 if __name__ == '__main__':
