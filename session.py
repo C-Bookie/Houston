@@ -30,6 +30,7 @@ class Node(connection.SocketHook):
 
         self.white_list_functions += [
             "trip",
+            "register",
             "rename_node",  # todo rename to set_node_alias
             "move_session",
             "get_session",
@@ -54,6 +55,10 @@ class Node(connection.SocketHook):
     def trip(self, msg):
         self.session.end(True)
         raise Exception("Node tripped up: " + msg)
+
+    def register(self, node_alias, session_alias):
+        self.rename_node(node_alias)
+        self.move_session(session_alias)
 
     def rename_node(self, msg):
         debug_print("Renamed node: " + self.alias + " => " + msg)  # todo add lobby alias to message

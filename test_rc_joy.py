@@ -18,18 +18,6 @@ def correct_joy(n):
 class Joystick(connection.Client):
 	def __init__(self):
 		super().__init__()
-		self.send_data({
-			"type": "move_session",
-			"args": [
-				2077
-			]
-		})
-		self.send_data({  # todo add to reconnect
-			"type": "rename_node",
-			"args": [
-				"rc_joy"
-			]
-		})
 
 		pygame.init()
 		# surface = pygame.display.set_mode((400, 300), 0, 32)
@@ -41,6 +29,16 @@ class Joystick(connection.Client):
 			joystick.init()
 			print("Initialised: ", joystick.get_name())
 			self.joysticks += [joystick]
+
+	def connect(self):
+		super().connect()
+		self.send_data({
+			"type": "register",
+			"args": [
+				2077,
+				"rc_joy"
+			]
+		})
 
 	def run(self):
 		while True:

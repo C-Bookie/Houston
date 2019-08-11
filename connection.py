@@ -5,6 +5,9 @@ import threading
 
 import serial
 
+# TODO add heartbeat
+# TODO make session client (rpc() connect())
+
 DEBUG = True
 
 
@@ -101,7 +104,7 @@ class SocketHook(threading.Thread):
 		data = b''
 		while len(data) < n:
 			packet = self.conn.recv(n - len(data))
-			self.debug_print("Packet: ", packet)
+			# self.debug_print("Packet: ", packet)
 			if not packet:
 				return None  # EOF
 			data += packet

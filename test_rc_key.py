@@ -15,8 +15,8 @@ class RCKeyController(connection.Client):
 		pygame.display.set_caption('jazZy')
 
 		self.background = pygame.Surface(self.screen.get_size())
-		background = self.background.convert()
-		background.fill((250, 250, 250))
+		self.background = self.background.convert()
+		self.background.fill((250, 250, 250))
 
 		self.key_hot = [False]*4
 		self.directions = [
@@ -26,22 +26,19 @@ class RCKeyController(connection.Client):
 			pygame.K_LEFT
 		]
 
-		self.send_data({  # todo add to reconnect
-			"type": "move_session",
-			"args": [
-				2077
-			]
-		})
-		self.send_data({  # todo add to reconnect
-			"type": "rename_node",
-			"args": [
-				"rc_host"
-			]
-		})
-
 		self.white_list_functions += [
 			"joy_position"
 		]
+
+	def connect(self):
+		super().connect()
+		self.send_data({
+			"type": "register",
+			"args": [
+				2077,
+				"rc_host"
+			]
+		})
 
 	def run(self):
 		while True:

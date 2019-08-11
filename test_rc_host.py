@@ -4,22 +4,20 @@ import connection
 class RCController(connection.Client):
 	def __init__(self):
 		super().__init__()
-		self.send_data({  # todo add to reconnect
-			"type": "move_session",
-			"args": [
-				2077
-			]
-		})
-		self.send_data({  # todo add to reconnect
-			"type": "rename_node",
-			"args": [
-				"rc_host"
-			]
-		})
 
 		self.white_list_functions += [
 			"joy_position"
 		]
+
+	def connect(self):
+		super().connect()
+		self.send_data({
+			"type": "register",
+			"args": [
+				2077,
+				"rc_host"
+			]
+		})
 
 	def joy_position(self, data):
 		x = data["axis"][0]
