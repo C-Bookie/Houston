@@ -102,43 +102,42 @@ class MidiKeyboard(connection.Client):
 			]
 		})
 
-	def run(self):
-		while True:
-			events = pygame.event.get()
-			for event in events:
-				if event.type in [pygame.KEYDOWN, pygame.KEYUP]:
-					if event.key == pygame.K_SPACE:
-						self.send_data({
-							"type": "broadcast",
-							"args": [
-								{
-									"type": "sustain",
-									"args": [
-										event.type == pygame.KEYDOWN
-									]
-								},
-								"piano"
-							]
-						})
-					elif event.key in self.mapping:
-						self.send_data({
-							"type": "broadcast",
-							"args": [
-								{
-									"type": "note",
-									"args": [
-										self.mapping[event.key] + self.step_up,
-										event.type == pygame.KEYDOWN
-									]
-								},
-								"piano"
-							]
-						})
-				if event.type == pygame.QUIT:
-					return
+	def loop(self):
+		events = pygame.event.get()
+		for event in events:
+			if event.type in [pygame.KEYDOWN, pygame.KEYUP]:
+				if event.key == pygame.K_SPACE:
+					self.send_data({
+						"type": "broadcast",
+						"args": [
+							{
+								"type": "sustain",
+								"args": [
+									event.type == pygame.KEYDOWN
+								]
+							},
+							"piano"
+						]
+					})
+				elif event.key in self.mapping:
+					self.send_data({
+						"type": "broadcast",
+						"args": [
+							{
+								"type": "note",
+								"args": [
+									self.mapping[event.key] + self.step_up,
+									event.type == pygame.KEYDOWN
+								]
+							},
+							"piano"
+						]
+					})
+			if event.type == pygame.QUIT:
+				return
 
-			self.screen.blit(self.background, (0, 0))
-			pygame.display.flip()
+		self.screen.blit(self.background, (0, 0))
+		pygame.display.flip()
 
 	def send_note(s, note, on):
 		command = 'note_on' if on else 'note_off'
