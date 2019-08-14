@@ -51,26 +51,24 @@ class SocketHook(threading.Thread):
 			raise Exception("Request unrecognised by server: " + str(response))
 
 	def run(self):
-		while not self.closing.is_set():
-			self.loop()
+		try:
+			while not self.closing.is_set():
+				self.loop()
+		finally:
+			self.close()
 
 	def loop(self):
-		try:
-			raw_data = self.recv_msg()
-			if raw_data is not None:
-				msg = raw_data.decode()
-				if msg != '':
-					self.debug_print("Received: ", msg)
-					if self.callback is not None:
-						self.callback(msg)  # fixme added self, may break
-			else:
-				self.debug_print("Empty data!")
-				self.close()
-		except socket.error as esc:
-			self.on_fail()
+		raw_data = self.recv_msg()
+		if raw_data is not None:
+			msg = raw_data.decode()
+			if msg != '':
+				self.debug_print("Received: ", msg)
+				if self.callback is not None:
+					self.callback(msg)  # fixme added self, may break
+		else:
+			self.debug_print("Connection died")
+			self.close()
 
-	def on_fail(self):
-		self.close()
 
 	def send_data(self, data):
 		msg = encode(data)
@@ -111,12 +109,17 @@ class SocketHook(threading.Thread):
 		return data
 
 	def close(self):
-		self.debug_print("Closing connection...")
-		self.closing.set()
-		if self.host is not None:
-			self.host.close(self)
-		self.conn.close()
-		self.debug_print("Closed connection")
+		if not self.closing.is_set():
+			self.debug_print("Closing connection...")
+			self.closing.set()
+			if self.host is not None:
+				self.host.close(self)
+			# self.conn.close()
+			self.conn.shutdown(socket.SHUT_WR)
+			self.debug_print("Closed connection")
+
+	def __del__(self):
+		self.close()
 
 
 class Host(threading.Thread):
