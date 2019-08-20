@@ -33,7 +33,7 @@ class Node(connection.SocketHook):
             "register",
             "rename_node",  # todo rename to set_node_alias
             "move_session",
-            "get_session",
+            "get_sessions",
             "broadcast",
             "close",
             "stop"
@@ -69,7 +69,10 @@ class Node(connection.SocketHook):
         self.session.manager.move_session(self, session_alias)  # todo get player ID
 
     def get_sessions(self):  # todo review
-        return self.session.manager.sessions.keys()
+        self.send_data({
+            "type": "session_list",
+            "contents": list(self.session.manager.sessions.keys())
+        })
 
     def get_nodes(self):  # todo review
         return self.session.get_nodes()

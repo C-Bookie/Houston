@@ -45,7 +45,10 @@ class SocketHook(threading.Thread):
 		response = decode(msg)
 		if "type" in response and response["type"] in self.white_list_functions:
 			function = getattr(self, response["type"])
-			function(*response["args"])
+			if response["args"] is None:
+				function()
+			else:
+				function(*response["args"])
 		else:
 #			raise self.IllegalResponse("Request unrecognised by server: " + response["type"], response)  # fixme
 			raise Exception("Request unrecognised by server: " + str(response))
