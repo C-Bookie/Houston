@@ -27,7 +27,7 @@ class MidiWhistle(connection.Client):
 		self.briCo = (1 / 10)
 
 		self.user_frame_rate = 15
-		in_stream, input_info = lights.jazZy.openInputStream(10, self.user_frame_rate)
+		in_stream, input_info = lights.jazZy.openInputStream(None, self.user_frame_rate)
 		stream_framerate = int(input_info["defaultSampleRate"])
 		chunk_size = stream_framerate // self.user_frame_rate
 		self.live_input_stream = lights.jazZy.LiveInputStream(in_stream, chunk_size)

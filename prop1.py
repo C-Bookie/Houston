@@ -17,23 +17,29 @@ class Screen:
         self.background = self.background.convert()
 
     def run(self):
-        while True:
-            events = pygame.event.get()
-            for event in events:
-                if event.type == pygame.KEYDOWN:
-                    self.client.send_state(True)
-                if event.type == pygame.KEYUP:
-                    self.client.send_state(False)
-                if event.type == pygame.QUIT:
-                    return
+        try:
+            while True:
+                self.loop()
+        finally:
+            self.client.close()
 
-            if self.client.state:
-                self.background.fill((0, 0, 0))
-            else:
-                self.background.fill((250, 250, 250))
+    def loop(self):
+        events = pygame.event.get()
+        for event in events:
+            if event.type == pygame.KEYDOWN:
+                self.client.send_state(True)
+            if event.type == pygame.KEYUP:
+                self.client.send_state(False)
+            if event.type == pygame.QUIT:
+                return
 
-            self.screen.blit(self.background, (0, 0))
-            pygame.display.flip()
+        if self.client.state:
+            self.background.fill((0, 0, 0))
+        else:
+            self.background.fill((250, 250, 250))
+
+        self.screen.blit(self.background, (0, 0))
+        pygame.display.flip()
 
 
 class Prop(connection.Client):
@@ -68,8 +74,8 @@ class Prop(connection.Client):
 
 
 if __name__ == "__main__":
-    prop1 = Prop()
-    screen = Screen(prop1)
-    prop1.start()
+    prop = Prop()
+    screen = Screen(prop)
+    prop.start()
     screen.run()
 

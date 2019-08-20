@@ -1,8 +1,8 @@
-import prop
+import prop1
 
 
 if __name__ == "__main__":
-    prop1 = prop.Prop()
-    screen = prop.Screen(prop1)
-    prop1.start()
+    prop = prop1.Prop()
+    screen = prop1.Screen(prop)
+    prop.start()
     screen.run()

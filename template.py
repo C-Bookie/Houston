@@ -18,8 +18,11 @@ class Screen:
 		self.background.fill((0, 0, 0))
 
 	def run(self):
-		while True:
-			self.loop()
+		try:
+			while True:
+				self.loop()
+		finally:
+			self.client.close()
 
 	def loop(self):
 		events = pygame.event.get()
