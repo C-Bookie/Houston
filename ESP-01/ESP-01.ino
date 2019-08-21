@@ -13,7 +13,7 @@
 const char* ssid     = STASSID;
 const char* password = STAPSK;
 
-const char* host = "192.168.1.239";
+const char* host = "2.28.174.66";
 const uint16_t port = 8089;
 
 

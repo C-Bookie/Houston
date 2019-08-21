@@ -45,12 +45,12 @@ class SocketHook(threading.Thread):
 		response = decode(msg)
 		if "type" in response and response["type"] in self.white_list_functions:
 			function = getattr(self, response["type"])
-			if response["args"] is None:
-				function()
-			else:
+			if "args" in response and response["args"] is not None:
 				function(*response["args"])
+			else:
+				function()
 		else:
-#			raise self.IllegalResponse("Request unrecognised by server: " + response["type"], response)  # fixme
+			# raise self.IllegalResponse("Request unrecognised by server: " + response["type"], response)  # fixme
 			raise Exception("Request unrecognised by server: " + str(response))
 
 	def run(self):
@@ -71,7 +71,6 @@ class SocketHook(threading.Thread):
 		else:
 			self.debug_print("Connection died")
 			self.close()
-
 
 	def send_data(self, data):
 		msg = encode(data)
@@ -237,5 +236,5 @@ class SerialHook(threading.Thread):
 
 
 if __name__ == "__main__":
-	host = Host()
-	host.run()
+	h: Host = Host()
+	h.run()

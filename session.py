@@ -28,16 +28,16 @@ class Node(connection.SocketHook):
 		self.session: Session = session
 		self.session.add_node(self)
 
-        self.white_list_functions += [
-            "trip",
-            "register",
-            "rename_node",  # todo rename to set_node_alias
-            "move_session",
-            "get_sessions",
-            "broadcast",
-            "close",
-            "stop"
-        ]
+		self.white_list_functions += [
+			"trip",
+			"register",
+			"rename_node",  # todo rename to set_node_alias
+			"move_session",
+			"get_sessions",
+			"broadcast",
+			"close",
+			"stop"
+		]
 
 	# def callback(self, data):
 	#     response = connection.decode(data)
@@ -68,11 +68,14 @@ class Node(connection.SocketHook):
 	def move_session(self, session_alias):
 		self.session.manager.move_session(self, session_alias)  # todo get player ID
 
-    def get_sessions(self):  # todo review
-        self.send_data({
-            "type": "session_list",
-            "contents": list(self.session.manager.sessions.keys())
-        })
+	def get_sessions(self):  # todo review
+		data = {}
+		for session_alias, session in self.session.manager.sessions.items():
+			data[session_alias] = session.get_nodes()
+		self.send_data({
+			"type": "session_list",
+			"args": [data]  # todo change to contents
+		})
 
 	def get_nodes(self):  # todo review
 		return self.session.get_nodes()
@@ -89,7 +92,7 @@ class Node(connection.SocketHook):
 		self.session.end()
 
 
-class Session():  # todo review the idea of a multilayered room structure
+class Session:  # todo review the idea of a multilayered room structure
 	def __init__(self, manager, alias):
 		super().__init__()
 		self.manager: SessionManager = manager
@@ -170,5 +173,5 @@ class SessionManager(connection.Host):
 
 
 if __name__ == "__main__":
-	manager = SessionManager()
-	manager.run()
+	sm: SessionManager = SessionManager()
+	sm.run()

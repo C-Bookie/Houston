@@ -2,6 +2,7 @@ import pygame
 
 import connection
 
+
 class Screen:
 	def __init__(self, client):
 		self.client = client
