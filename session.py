@@ -3,13 +3,6 @@ import queue
 
 import connection
 
-DEBUG = True
-
-
-def debug_print(msg):
-	if DEBUG:
-		print(str(threading.current_thread().getName()) + ": " + str(msg))
-
 
 class Node(connection.SocketHook):
 	class IllegalResponse(Exception):  # fixme replace with connection.IllegalResponse
@@ -35,8 +28,7 @@ class Node(connection.SocketHook):
 			"move_session",
 			"get_sessions",
 			"broadcast",
-			"close",
-			"stop"
+			"close"
 		]
 
 	# def callback(self, data):
@@ -61,7 +53,7 @@ class Node(connection.SocketHook):
 		self.move_session(session_alias)
 
 	def rename_node(self, msg):
-		debug_print("Renamed node: " + self.alias + " => " + msg)  # todo add lobby alias to message
+		connection.debug_print(1, "Renamed node: " + self.alias + " => " + msg)  # todo add lobby alias to message
 		self.alias = msg  # todo change to response["content"]["alias"]
 		self.setName("Node-" + self.alias)
 
@@ -84,12 +76,9 @@ class Node(connection.SocketHook):
 		self.session.broadcast(response, node_alias)
 
 	def close(self):
-		self.session.manager.leave_session(self)
-		super().close()
-
-	def stop(self):
-		self.close()
-		self.session.end()
+		if not self.closing.is_set():
+			self.session.manager.leave_session(self)
+			super().close()
 
 
 class Session:  # todo review the idea of a multilayered room structure
@@ -109,13 +98,13 @@ class Session:  # todo review the idea of a multilayered room structure
 	def add_node(self, node: Node):
 		self.nodes += [node]
 		node.session = self
-		debug_print("Added node: " + node.alias + " -> " + self.alias)
+		connection.debug_print(1, "Added node: " + node.alias + " -> " + self.alias)
 
 	def remove_node(self, node: Node):
 		for i in range(len(self.nodes) - 1, -1, -1):
 			if self.nodes[i] is node:
 				del self.nodes[i]
-				debug_print("Removed node: " + node.alias + " <- " + self.alias)
+				connection.debug_print(1, "Removed node: " + node.alias + " <- " + self.alias)
 
 	def get_nodes(self):
 		return [node.alias for node in self.nodes]
@@ -143,7 +132,7 @@ class SessionManager(connection.Host):
 
 	def move_session(self, node: Node, session_alias):
 		session_alias = str(session_alias)
-		debug_print("Moving node: " + node.alias + " -> " + session_alias)
+		connection.debug_print(1, "Moving node: " + node.alias + " -> " + session_alias)
 		self.leave_session(node)
 		self.join_session(node, session_alias)
 
@@ -157,7 +146,7 @@ class SessionManager(connection.Host):
 		assert session_alias not in self.sessions
 		self.sessions[session_alias] = self.session_hook(self, session_alias)
 		# self.sessions[session_alias].start()
-		debug_print("Created new session: " + session_alias)
+		connection.debug_print(1, "Created new session: " + session_alias)
 		return self.sessions[session_alias]
 
 	def leave_session(self, node: Node):
@@ -169,7 +158,7 @@ class SessionManager(connection.Host):
 	def delete_session(self, session_alias):
 		assert session_alias in self.sessions
 		del self.sessions[session_alias]  # todo review
-		debug_print("Deleted old session: " + session_alias)
+		connection.debug_print(1, "Deleted old session: " + session_alias)
 
 
 if __name__ == "__main__":

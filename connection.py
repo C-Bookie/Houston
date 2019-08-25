@@ -2,13 +2,19 @@ import json
 import socket
 import struct
 import threading
+import datetime
 
 import serial
 
 # TODO add heartbeat
 # TODO make session client (rpc() connect())
 
-DEBUG = True
+DEBUG_LEVEL = 2
+
+
+def debug_print(importance, *args):
+	if importance <= DEBUG_LEVEL:
+		print(datetime.datetime.now().strftime("%Y-%m-%d %H:%M"), "\t", str(threading.current_thread().getName()), ": ", *args)
 
 
 def encode(data):
@@ -34,12 +40,8 @@ class SocketHook(threading.Thread):
 		self.closing = threading.Event()
 		self.addr, self.port = self.conn.getpeername()
 		self.setName("Connection-" + self.addr + ":" + str(self.port))
-		self.debug_print("Connection opened")
+		debug_print(1, "Connection opened")
 		self.white_list_functions = []
-
-	def debug_print(self, *args):
-		if DEBUG:
-			print(self.addr, '|', self.port, '\t', *args)
 
 	def callback(self, msg):  # todo review
 		response = decode(msg)
@@ -65,11 +67,11 @@ class SocketHook(threading.Thread):
 		if raw_data is not None:
 			msg = raw_data.decode()
 			if msg != '':
-				self.debug_print("Received: ", msg)
+				debug_print(2, "Received: ", msg)
 				if self.callback is not None:
 					self.callback(msg)  # fixme added self, may break
 		else:
-			self.debug_print("Connection died")
+			debug_print(1, "Connection died")
 			self.close()
 
 	def send_data(self, data):
@@ -81,7 +83,7 @@ class SocketHook(threading.Thread):
 			if msg == '':
 				print("Cannot send empty data!")
 			else:
-				self.debug_print("Sending: ", msg)
+				debug_print(1, "Sending: ", msg)
 				if type(msg) is str:
 					msg = bytearray(msg, 'utf-8')
 				size = struct.pack('<I', len(msg))
@@ -97,14 +99,14 @@ class SocketHook(threading.Thread):
 		if not raw_msg_len:
 			return None
 		msg_len = struct.unpack('<I', raw_msg_len)[0]
-		# self.debug_print("Length: ", msg_len)
+		debug_print(3, "Length: ", msg_len)
 		return self.recv_all(msg_len)
 
 	def recv_all(self, n):
 		data = b''
 		while len(data) < n:
 			packet = self.conn.recv(n - len(data))
-			# self.debug_print("Packet: ", packet)
+			debug_print(3, "Packet: ", packet)
 			if not packet:
 				return None  # EOF
 			data += packet
@@ -112,13 +114,13 @@ class SocketHook(threading.Thread):
 
 	def close(self):
 		if not self.closing.is_set():
-			self.debug_print("Closing connection...")
+			debug_print(1, "Closing connection...")
 			self.closing.set()
 			if self.host is not None:
 				self.host.close(self)
 			# self.conn.close()
 			self.conn.shutdown(socket.SHUT_WR)
-			self.debug_print("Closed connection")
+			debug_print(1, "Closed connection")
 
 	def __del__(self):
 		self.close()
@@ -126,14 +128,14 @@ class SocketHook(threading.Thread):
 
 class Host(threading.Thread):
 	def __init__(self, port=8089, callback=None):
-		print("Host starting...")
+		debug_print(0, "Host starting...")
 		super(Host, self).__init__()
 		self.callback = callback
 		self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		self.sock.bind(('', port))
 		self.sock.listen(5)  # become a server socket, maximum 5 connections
 		self.connections = []
-		print("Host started: ", self.sock.getsockname())
+		debug_print(0, "Host started: ", self.sock.getsockname())
 
 	def run(self):
 		while True:
@@ -161,26 +163,26 @@ class Client(SocketHook):
 	def __init__(self, addr='127.0.0.1', port=8089, callback=None):
 		self.addr = addr
 		self.port = port
-		print("Client starting...")
+		debug_print(0, "Client starting...")
 		self.connect()
 		super(Client, self).__init__(self.conn, callback)
-		print("Client started: ", self.conn.getsockname())
+		debug_print(0, "Client started: ", self.conn.getsockname())
 
 	def connect(self):
-		print("Connecting")
+		debug_print(0, "Connecting")
 		while not self.closed.is_set():
 			try:
 				self.conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 				self.conn.connect((self.addr, self.port))
-				print("Connected")
+				debug_print(0, "Connected")
 				break
 			except ConnectionRefusedError:
-				print("Reconnecting...")
+				debug_print(0, "Reconnecting...")
 			except Exception as exc:
 				raise exc  # fixme handel reconnection
 
 	def on_fail(self):
-		print("Connection lost")
+		debug_print(0, "Connection lost")
 		self.connect()
 
 
@@ -210,17 +212,17 @@ class SerialHook(threading.Thread):
 				data = data[:-1]
 
 			if len(data) == 0:
-				print("Empty string")
+				debug_print(2, "Empty string")
 			else:
-				print("(", self.ser.port, ")\tReceived: ", data)
+				debug_print(2, "(", self.ser.port, ")\tReceived: ", data)
 				if self.callback is not None:
 					self.callback(data)
 		else:
-			print("\tEmpty data!")
+			debug_print(2, "\tEmpty data!")
 			self.closed.set()  # todo replace with self.close()
 
 	def send_msg(self, msg):
-		print("(", self.ser.port, ")\tSending: ", msg)
+		debug_print(2, "(", self.ser.port, ")\tSending: ", msg)
 		if type(msg) is str:
 			msg = bytearray(msg, 'utf-8')
 		try:
@@ -232,7 +234,7 @@ class SerialHook(threading.Thread):
 
 	def __del__(self):
 		self.ser.close()
-		print("Closed connection")
+		debug_print(2, "Closed connection")
 
 
 if __name__ == "__main__":
