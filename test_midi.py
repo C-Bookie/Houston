@@ -139,12 +139,6 @@ class MidiKeyboard(connection.Client):
 		self.screen.blit(self.background, (0, 0))
 		pygame.display.flip()
 
-	def send_note(s, note, on):
-		command = 'note_on' if on else 'note_off'
-		msg = mido.Message(command, note=note)
-		s.port.send(msg)
-		print(pygame.midi.midi_to_ansi_note(note) + ": " + command)
-
 
 if __name__ == "__main__":
 	piano = test_piano.Piano()

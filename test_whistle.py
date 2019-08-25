@@ -1,7 +1,6 @@
 import math
 
 import numpy as np
-import matplotlib.pyplot as plt
 
 import connection
 import lights.jazZy
@@ -19,19 +18,22 @@ class MidiWhistle(connection.Client):
 
 		self.velocity = 8  # lower is brighter
 		self.curve = 3
-		self.cap = 1.5
+		self.cap = 1
 		# self.cutin = 0.0
 		# self.cutoff = 1
 		self.hueCo = (1 / 2)
 		self.satCo = (1 / 5)
 		self.briCo = (1 / 10)
 
-		self.user_frame_rate = 15
-		in_stream, input_info = lights.jazZy.openInputStream(None, self.user_frame_rate)
+		self.frame_rate = 15
+
+		in_stream, input_info = lights.jazZy.openInputStream(1, self.frame_rate)
 		stream_framerate = int(input_info["defaultSampleRate"])
-		chunk_size = stream_framerate // self.user_frame_rate
+		chunk_size = stream_framerate // self.frame_rate
 		self.live_input_stream = lights.jazZy.LiveInputStream(in_stream, chunk_size)
 		self.live_input_stream.start()
+
+		self.threshold = 3
 
 	def connect(self):
 		super().connect()
@@ -48,12 +50,8 @@ class MidiWhistle(connection.Client):
 		da = np.fromstring(data, dtype=np.int16)
 		left, right = da[0::2], da[1::2]  # left and right channel
 		sample = right
-		frame_rate = self.user_frame_rate
 
-		scaler = 10**self.velocity
-
-		limit = scaler / frame_rate
-		sample = sample / limit
+		sample = sample / (10**self.velocity / self.frame_rate)
 
 		graph = np.abs(np.fft.rfft(sample).real) #** (1 / co)
 		graph = np.array([x*y for x, y in zip(range(len(graph)), graph)])
@@ -89,16 +87,43 @@ class MidiWhistle(connection.Client):
 		sat **= self.satCo
 		bri **= self.briCo
 
+		peaks = []
+		troughs = []  # fixme
+		last_vol = 0
+		last_vol_high = 0
+		last_i_high = 0
+		last_vol_low = 0
+		pass_thresh = False
+		for i in range(len(graph)):
+			vol = graph[i]
+			dir = (last_vol <= vol)
+
+			if dir:
+				last_vol_high = vol
+				last_i_high = i
+				if last_vol_low + self.threshold < last_vol_high:
+					pass_thresh = True
+			else:
+				last_vol_low = vol
+				if pass_thresh and last_vol_low + self.threshold < last_vol_high:
+					peaks += [last_i_high]
+					pass_thresh = False
+
+			last_vol = vol
+
 		self.send_data({
 			"type": "broadcast",
 			"args": [
 				{
 					"type": "draw",
 					"args": [
+						self.frame_rate,
 						list(graph),
 						list(graph1),
 						list(sample),
-						(hue, sat, bri)
+						(hue, sat, bri),
+						peaks,
+						troughs
 					]
 				},
 				"graph"

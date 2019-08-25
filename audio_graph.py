@@ -1,4 +1,5 @@
 import colorsys
+import threading
 
 import pygame
 
@@ -9,7 +10,7 @@ class Screen:
 	def __init__(self, client):
 		self.client = client
 
-		self.height = 600
+		self.height = 700
 		self.width = 800
 
 		pygame.init()
@@ -30,6 +31,8 @@ class Screen:
 		self.stats = {
 			# "base": ((255, 255, 255), "moo")
 		}
+
+		self.lock = threading.Lock()
 
 	def run(self):
 		while True:
@@ -56,10 +59,13 @@ class Screen:
 		# 		return
 
 		# pygame.event.poll()
+
+		self.lock.acquire()
 		self.background.fill(self.back_colour)
 		for name in self.points:
 			colour, points_set = self.points[name]
-			pygame.draw.lines(self.background, colour, False, points_set)
+			if len(points_set) > 1:
+				pygame.draw.lines(self.background, colour, False, points_set)
 		self.screen.blit(self.background, (0, 0))
 
 		spacing = 20
@@ -70,14 +76,15 @@ class Screen:
 			self.screen.blit(self.font.render(msg, False, colour), (150, drop))
 			drop += spacing
 
+		self.lock.release()
 		pygame.display.flip()
 
 
 class Graph(connection.Client):
+	screen: Screen
+
 	def __init__(self):
 		super().__init__()
-
-		self.screen = None
 
 		self.white_list_functions += [
 			"draw"
@@ -93,7 +100,9 @@ class Graph(connection.Client):
 			]
 		})
 
-	def draw(self, graph, graph1, sample, hsv):
+	def draw(self, frame_rate, graph, graph1, sample, hsv, peaks, troughs):
+		self.screen.lock.acquire()
+
 		y_scaler = self.screen.height / max(graph1)
 		x_scaler = self.screen.width / (len(graph1)-1)
 		y_data = [self.screen.height - (n * y_scaler) for n in graph1]
@@ -125,6 +134,24 @@ class Graph(connection.Client):
 		self.screen.stats["hue"] = ((255, 255, 255), (str(h)))
 		self.screen.stats["sat"] = ((255, 255, 255), (str(s)))
 		self.screen.stats["bri"] = ((255, 255, 255), (str(v)))
+
+		x_scaler = self.screen.width / (len(graph) - 1)
+		y_data = []
+		x_data = []
+		for n in peaks:
+			y_data += [0, self.screen.height, 0]
+			x = n * x_scaler
+			x_data += [x, x, x]
+		colour = (255, 255, 255)
+		self.screen.points["peaks"] = (colour, list(zip(x_data, y_data)))
+
+		if len(peaks) > 0:
+			print(peaks)
+			freq = peaks[0]
+			self.screen.stats["peak"] = (colour, str(freq))
+
+		self.screen.lock.release()
+
 
 if __name__ == "__main__":
 	graph = Graph()

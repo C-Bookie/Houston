@@ -9,7 +9,7 @@ import serial
 # TODO add heartbeat
 # TODO make session client (rpc() connect())
 
-DEBUG_LEVEL = 2
+DEBUG_LEVEL = 0
 
 
 def debug_print(importance, *args):
@@ -53,7 +53,8 @@ class SocketHook(threading.Thread):
 				function()
 		else:
 			# raise self.IllegalResponse("Request unrecognised by server: " + response["type"], response)  # fixme
-			raise Exception("Request unrecognised by server: " + str(response))
+			# raise Exception("Request unrecognised by server: " + str(response))
+			print("Request unrecognised by server: " + str(response))
 
 	def run(self):
 		try:

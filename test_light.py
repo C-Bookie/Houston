@@ -1,38 +1,57 @@
-#testing phue and mqtt for motion sensing lights
-
 import phue
 import time
 import random
 
+import connection
 
-def test1():
-    b = phue.Bridge('192.168.1.211')
-    b.connect()
-    print(b.get_api())
 
-    state = False
-    for i in range(100):
-        state = not state
+class LightPainter(connection.Client):
+    def __init__(self):
+        super().__init__()
+        self.bridge = phue.Bridge('192.168.1.211')
+        self.bridge.connect()
+
+        self.white_list_functions += [
+            "draw"
+        ]
+
+        state = False
+        for i in range(100):
+            state = not state
+            command = {
+                'transitiontime': 1,
+    #            'on': state,
+    #            'bri': 255,
+                'hue':random.randint(0, 255)
+            }
+            self.bridge.set_light('cal', command)
+            time.sleep(0.1)
+
+
+    def connect(self):
+        super().connect()
+        self.send_data({
+            "type": "register",
+            "args": [
+                "graph",
+                2077
+            ]
+        })
+
+    def draw(self, frame_rate, graph, graph1, sample, hsv, peaks, troughs):
         command = {
             'transitiontime': 1,
-#            'on': state,
-#            'bri': 255,
-            'hue':random.randint(0, 255)
+            'on': True,
+            'hue': int(hsv[0] * 65535),
+            'sat': int(hsv[1] * 254),
+            'bri': int(hsv[2] * 254)
         }
-        b.set_light('cal', command)
-        time.sleep(0.1)
+        self.bridge.set_light('cal', command)
 
-
-def on_connect(client, userdata, flags, rc):
-    print("Connected with result code "+str(rc))
-
-    client.subscribe("#")
-
-def on_message(client, userdata, msg):
-    print(msg.topic+" "+str(msg.payload))
 
 
 if __name__ == "__main__":
-    test2()
+    lp = LightPainter()
+    lp.run()
 
 

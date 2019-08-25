@@ -26,10 +26,13 @@ class Piano(connection.Client):
         })
 
     def note(self, note, down):
-        command = 'note_on' if down else 'note_off'
-        msg = mido.Message(command, note=note)
-        self.midiPort.send(msg)
-        print(pygame.midi.midi_to_ansi_note(note) + ": " + command)
+        if 0 <= note <= 127:
+            command = 'note_on' if down else 'note_off'
+            msg = mido.Message(command, note=note)
+            self.midiPort.send(msg)
+            print(pygame.midi.midi_to_ansi_note(note) + ": " + command)
+        else:
+            print("Note out of range: " + str(note))
 
     def sustain(self, down):
         value = 127 if down else 0

@@ -1,3 +1,5 @@
+import threading
+
 import pygame
 
 import connection
@@ -18,6 +20,8 @@ class Screen:
 		self.background = self.background.convert()
 		self.background.fill((0, 0, 0))
 
+		self.lock = threading.Lock()
+
 	def run(self):
 		try:
 			while True:
@@ -27,6 +31,7 @@ class Screen:
 
 	def loop(self):
 		events = pygame.event.get()
+		self.lock.acquire()
 		for event in events:
 			if event.type in [pygame.KEYDOWN, pygame.KEYUP]:
 				self.client.send_data({
@@ -46,6 +51,7 @@ class Screen:
 				return
 
 		self.screen.blit(self.background, (0, 0))
+		self.lock.release()
 		pygame.display.flip()
 
 
