@@ -25,15 +25,15 @@ class MidiWhistle(connection.Client):
 		self.satCo = (1 / 5)
 		self.briCo = (1 / 10)
 
-		self.frame_rate = 15
+		self.frame_rate = 16
 
-		in_stream, input_info = lights.jazZy.openInputStream(1, self.frame_rate)
+		in_stream, input_info = lights.jazZy.openInputStream(11, self.frame_rate)
 		stream_framerate = int(input_info["defaultSampleRate"])
 		chunk_size = stream_framerate // self.frame_rate
 		self.live_input_stream = lights.jazZy.LiveInputStream(in_stream, chunk_size)
 		self.live_input_stream.start()
 
-		self.threshold = 3
+		self.threshold = 4
 
 	def connect(self):
 		super().connect()

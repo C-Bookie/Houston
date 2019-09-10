@@ -25,10 +25,11 @@ class Piano(connection.Client):
             ]
         })
 
-    def note(self, note, down):
+    def note(self, note, down, vel=0.5):
         if 0 <= note <= 127:
             command = 'note_on' if down else 'note_off'
-            msg = mido.Message(command, note=note)
+            vel = int(vel*127)
+            msg = mido.Message(command, note=note, velocity=vel)
             self.midiPort.send(msg)
             print(pygame.midi.midi_to_ansi_note(note) + ": " + command)
         else:

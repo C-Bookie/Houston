@@ -1,6 +1,12 @@
 import pygame.midi
 import connection
 
+import numpy as np
+
+
+def sigmoid(x):
+	return 1 / (1 + np.exp(-x))
+
 
 class Kevin(connection.Client): # Kevin plays the keyboard
 	def __init__(self):
@@ -9,7 +15,6 @@ class Kevin(connection.Client): # Kevin plays the keyboard
 			"draw"
 		]
 		self.last_notes_down = set()
-
 
 	def connect(self):
 		super().connect()
@@ -43,6 +48,13 @@ class Kevin(connection.Client): # Kevin plays the keyboard
 			})
 
 		for note in notes_down - self.last_notes_down:
+			low = int(pygame.midi.midi_to_frequency(note-1/2) / frame_rate)
+			high = int(pygame.midi.midi_to_frequency(note+1/2) / frame_rate)
+			if low < 0:
+				low = 0
+			if high > len(graph)-1:
+				high = len(graph) - 1
+			vel = sigmoid(max([graph[i] for i in range(low, high)]))
 			self.send_data({
 				"type": "broadcast",
 				"args": [
@@ -50,7 +62,8 @@ class Kevin(connection.Client): # Kevin plays the keyboard
 						"type": "note",
 						"args": [
 							note,
-							True
+							True,
+							vel
 
 						]
 					},
