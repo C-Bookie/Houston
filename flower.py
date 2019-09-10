@@ -3,7 +3,7 @@ import threading
 
 import pygame
 
-import connection
+# import connection
 
 
 class Screen:
@@ -26,20 +26,21 @@ class Screen:
 		self.num_points = 10000
 		self.points = []
 
-		self.scale = 750
+		self.scale = 500
 		self.turn_fraction = (1 + 5 ** 0.5) / 2
 
 		while True:
 			self.print()
 			self.turn_fraction += 0.000001
-			self.num_points += 1
+			# self.num_points += 1
 
 	def run(self):
 		try:
 			while True:
 				self.loop()
 		finally:
-			self.client.close()
+			pass
+			# self.client.close()
 
 	def loop(self):
 		events = pygame.event.get()
@@ -86,31 +87,55 @@ class Screen:
 
 			self.points += [(x, y)]
 
-		for x, y in self.points:
+		# for x1, y1 in reversed(self.points):
+		# 	for x2, y2 in reversed(self.points):
+		# 		dist = 1 - math.sqrt((x1-x2)**2 + (y1-y2)**2) / 2
+		# 		central = math.sqrt(((x1+x2)/2)**2 + ((y1+y2)/2)**2) / 2
+		# 		bri = (dist**5)*(central**0.5)# ** (central ** 0.5)
+		# 		# bri *= 1.1
+		# 		colour = (bri*255, bri*255, bri*255)
+		# 		point1 = (
+		# 			int((self.width/2) + x1 * self.scale),
+		# 			int((self.height/2) + y1 * self.scale)
+		# 		)
+		# 		point2 = (
+		# 			int((self.width/2) + x2 * self.scale),
+		# 			int((self.height/2) + y2 * self.scale)
+		# 		)
+		# 		pygame.draw.line(self.screen, colour, point1, point2)
+
+		for i, raw_point in enumerate(self.points):
+			x, y = raw_point
 			point = (
 				int((self.width/2) + x * self.scale),
 				int((self.height/2) + y * self.scale)
 			)
-			pygame.draw.circle(self.screen, (255, 255, 255), point, 1)
+			# colour = (255, 255, 255)
+			colour = (
+				((i%2)/2) * 255,
+				((i%3)/3) * 255,
+				((i%5)/5) * 255,
+			)
+			pygame.draw.circle(self.screen, colour, point, 1)
 
 		pygame.display.flip()
 
 
-class Template(connection.Client):
-	def __init__(self):
-		super().__init__()
-		self.screen = None
-		self.white_list_functions += []
-
-	def connect(self):
-		super().connect()
-		self.send_data({
-			"type": "register",
-			"args": [
-				"flower",
-				2077
-			]
-		})
+# class Template(connection.Client):
+# 	def __init__(self):
+# 		super().__init__()
+# 		self.screen = None
+# 		self.white_list_functions += []
+#
+# 	def connect(self):
+# 		super().connect()
+# 		self.send_data({
+# 			"type": "register",
+# 			"args": [
+# 				"flower",
+# 				2077
+# 			]
+# 		})
 
 
 if __name__ == "__main__":
