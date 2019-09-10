@@ -29,10 +29,7 @@ class Screen:
 		self.scale = 500
 		self.turn_fraction = (1 + 5 ** 0.5) / 2
 
-		while True:
-			self.print()
-			self.turn_fraction += 0.000001
-			# self.num_points += 1
+		self.speed = 0.000001
 
 	def run(self):
 		try:
@@ -60,13 +57,15 @@ class Screen:
 				# 	]
 				# })
 			if event.type == pygame.KEYDOWN:
-				self.num_points -= 1
+				# self.num_points -= 1
+				self.speed /= 4
 			elif event.type == pygame.KEYUP:
-				self.num_points += 1
-
+				# self.num_points += 1
+				self.speed *= 4
 			elif event.type == pygame.QUIT:
 				return
 
+		self.turn_fraction += self.speed
 		self.print()
 		self.lock.release()
 
