@@ -8,6 +8,7 @@ class Piano(connection.Client):
     def __init__(self):
         super().__init__()
         pygame.midi.init()
+        print(mido.get_output_names())
         self.midiPort = mido.open_output("moo 1")
 
         self.white_list_functions += [

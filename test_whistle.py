@@ -16,16 +16,25 @@ class MidiWhistle(connection.Client):
 
 		# self.center = (0.1, 0.1, 0.2)
 
-		self.velocity = 8  # lower is brighter
-		self.curve = 3
-		self.cap = 1
+		# self.velocity = 9  # lower is brighter
+		# self.curve = 1
+		# self.cap = 1
+		# # self.cutin = 0.0
+		# # self.cutoff = 1
+		# self.hueCo = (1 / 4)
+		# self.satCo = (1 / 5)
+		# self.briCo = (1 / 1)
+
+		self.velocity = 0.00000000001  # lower is brighter
+		self.curve = math.e
+		self.cap = 2
 		# self.cutin = 0.0
 		# self.cutoff = 1
-		self.hueCo = (1 / 2)
-		self.satCo = (1 / 5)
-		self.briCo = (1 / 10)
+		self.hueCo = 1
+		self.satCo = 1
+		self.briCo = 1
 
-		self.frame_rate = 16
+		self.frame_rate = 15
 
 		in_stream, input_info = lights.jazZy.openInputStream(11, self.frame_rate)
 		stream_framerate = int(input_info["defaultSampleRate"])
@@ -51,15 +60,14 @@ class MidiWhistle(connection.Client):
 		left, right = da[0::2], da[1::2]  # left and right channel
 		sample = right
 
-		sample = sample / (10**self.velocity / self.frame_rate)
+		sample = self.velocity * sample  # / self.frame_rate
 
 		graph = np.abs(np.fft.rfft(sample).real) #** (1 / co)
-		graph = np.array([x*y for x, y in zip(range(len(graph)), graph)])
+		graph = np.array([x*(y<<16) for x, y in zip(range(len(graph)), graph)])
 		graph1 = sigmoid(graph) * 2 - 1
-		graph1 **= self.curve
+		graph **= self.curve
 
 		min = 0
-		# max = int(limit)
 		max = int(len(graph1)/self.cap)
 
 		l = max - min

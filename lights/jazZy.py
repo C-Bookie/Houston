@@ -315,7 +315,7 @@ class MusicPlayer(threading.Thread):
 			s.channels = s.f.getnchannels()
 			s.framerate = s.f.getframerate()
 		else:
-			in_stream, input_info = openInputStream(9, frame_rate)
+			in_stream, input_info = openInputStream(1, frame_rate)
 			s.channels = input_info["maxOutputChannels"]
 			s.sampleWidth = s.channels
 			s.framerate = int(input_info["defaultSampleRate"])
@@ -374,7 +374,7 @@ class MusicPlayer(threading.Thread):
 					s.live_mapper.queue.put(next)
 					li += 1
 			if s.OUTPUT:
-				out_stream.write(data * 0.5)
+				out_stream.write(data)# * 0.5)
 			if not data:
 				break
 

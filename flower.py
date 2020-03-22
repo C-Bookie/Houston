@@ -23,13 +23,17 @@ class Screen:
 
 		self.lock = threading.Lock()
 
-		self.num_points = 10000
+		self.num_points = 1000
 		self.points = []
 
 		self.scale = 500
-		self.turn_fraction = (1 + 5 ** 0.5) / 2
+		self.golden_ratio = (1 + 5 ** 0.5) / 2
+		# self.turn_fraction = self.golden_ratio
+		self.turn_fraction = 0
 
-		self.speed = 0.000001
+		self.spacing = 0.5
+
+		self.speed = 0.1 / self.num_points
 
 	def run(self):
 		try:
@@ -66,6 +70,7 @@ class Screen:
 				return
 
 		self.turn_fraction += self.speed
+		# self.num_points += 1
 		self.print()
 		self.lock.release()
 
@@ -78,7 +83,7 @@ class Screen:
 		self.points = []
 
 		for i in range(self.num_points):
-			dst = i / (self.num_points - 1)
+			dst = (i / (self.num_points - 1)) ** (1-self.turn_fraction)
 			angle = 2 * math.pi * self.turn_fraction * i
 
 			x = dst * math.cos(angle)
@@ -110,10 +115,11 @@ class Screen:
 				int((self.height/2) + y * self.scale)
 			)
 			# colour = (255, 255, 255)
+			r, g, b = 6, 35, 143
 			colour = (
-				((i%2)/2) * 255,
-				((i%3)/3) * 255,
-				((i%5)/5) * 255,
+				((i % r)/r) * 255,
+				((i % g)/g) * 255,
+				((i % b)/b) * 255,
 			)
 			pygame.draw.circle(self.screen, colour, point, 1)
 

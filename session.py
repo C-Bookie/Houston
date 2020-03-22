@@ -21,7 +21,7 @@ class Node(connection.SocketHook):
 		self.session: Session = session
 		self.session.add_node(self)
 
-		self.white_list_functions += [
+		self.white_list_functions += [  # todo replace with function decorators
 			"trip",
 			"register",
 			"rename_node",  # todo rename to set_node_alias
