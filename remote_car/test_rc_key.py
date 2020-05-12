@@ -1,6 +1,6 @@
 import pygame
 
-import connection
+from caduceussocket import connection
 
 
 class RCKeyController(connection.Client):

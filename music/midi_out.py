@@ -1,7 +1,7 @@
 import mido
 import pygame.midi
 
-import connection
+from caduceussocket import connection
 
 
 class Piano(connection.Client):

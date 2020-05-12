@@ -1,7 +1,7 @@
 import numpy as np
 
-import connection
-import jazZy
+from caduceussocket import connection
+from spiritus_lumina import jazZy
 
 
 def callback(client, data):

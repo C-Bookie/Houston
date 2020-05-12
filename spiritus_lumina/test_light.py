@@ -2,7 +2,7 @@ import phue
 import time
 import random
 
-import connection
+from caduceussocket import connection
 
 
 class LightPainter(connection.Client):

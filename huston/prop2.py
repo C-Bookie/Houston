@@ -1,6 +1,4 @@
-import audio_graph
-import prop1
-
+from spiritus_lumina import audio_graph
 
 # if __name__ == "__main__":
 #     prop = prop1.Prop()

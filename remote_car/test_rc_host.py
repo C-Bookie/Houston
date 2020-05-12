@@ -1,4 +1,4 @@
-import connection
+from caduceussocket import connection
 
 
 class RCController(connection.Client):

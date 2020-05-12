@@ -2,8 +2,8 @@ import math
 
 import numpy as np
 
-import connection
-import lights.jazZy
+from caduceussocket import connection
+import spiritus_lumina.jazZy
 
 
 def sigmoid(x):
@@ -36,10 +36,10 @@ class MidiWhistle(connection.Client):
 
 		self.frame_rate = 15
 
-		in_stream, input_info = lights.jazZy.openInputStream(11, self.frame_rate)
+		in_stream, input_info = spiritus_lumina.jazZy.openInputStream(11, self.frame_rate)
 		stream_framerate = int(input_info["defaultSampleRate"])
 		chunk_size = stream_framerate // self.frame_rate
-		self.live_input_stream = lights.jazZy.LiveInputStream(in_stream, chunk_size)
+		self.live_input_stream = spiritus_lumina.jazZy.LiveInputStream(in_stream, chunk_size)
 		self.live_input_stream.start()
 
 		self.threshold = 4

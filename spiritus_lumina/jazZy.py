@@ -33,7 +33,7 @@ from pygame.locals import *
 
 import matplotlib.pyplot as plt
 
-import connection
+from caduceussocket import connection
 
 deadzone = 0.25
 GEN_GRAPHS = False
@@ -686,7 +686,7 @@ def test6():
 
 
 if __name__ == '__main__':
-	path = "./audio/mass.wav"
+	path = "audio/mass.wav"
 	# path = "./audio/kuzz.wav"	# run()
 	# path = "./audio/mozart.wav"
 	# path = "./audio/dubwise.wav"

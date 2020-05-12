@@ -1,5 +1,5 @@
 import pygame.midi
-import connection
+from caduceussocket import connection
 
 import numpy as np
 

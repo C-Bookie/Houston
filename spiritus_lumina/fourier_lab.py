@@ -64,7 +64,7 @@ def test2():
 	#
 	# if 1:
 
-	path = "./audio/mass.wav"
+	path = "audio/mass.wav"
 	music = wave.open(path, 'r')
 
 

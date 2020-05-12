@@ -1,17 +1,15 @@
 
 #todo wistle to midi, get audio stream and convert frequency to note, activate based on volume
 #todo sine wave modulation generator
-import pygame
 import mido
 import pygame.midi
 
-import test_piano
-import connection
+from caduceussocket import connection
 
 
 def test1():
-	mid1 = mido.MidiFile('midi/sample1-1.mid')
-	mid2 = mido.MidiFile('midi/sample1-2.mid')
+	mid1 = mido.MidiFile('../midi/sample1-1.mid')
+	mid2 = mido.MidiFile('../midi/sample1-2.mid')
 
 	assert len(mid1.tracks[0]) == len(mid2.tracks[0])
 
@@ -141,7 +139,7 @@ class MidiKeyboard(connection.Client):
 
 
 if __name__ == "__main__":
-	piano = test_piano.Piano()
+	piano = midi_out.Piano()
 	piano.start()
 	keyboard = MidiKeyboard()
 	keyboard.run()

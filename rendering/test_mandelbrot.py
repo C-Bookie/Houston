@@ -3,7 +3,6 @@ import time
 import pygame, sys
 from pygame.locals import *
 import numpy as np
-import math
 
 height = 1000
 width = 1000

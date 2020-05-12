@@ -3,7 +3,7 @@ import threading
 
 import pygame
 
-# import connection
+# from caduceussocket import connection
 
 
 class Screen:
@@ -33,7 +33,7 @@ class Screen:
 
 		self.spacing = 0.5
 
-		self.speed = 0.1 / self.num_points
+		self.speed = 0.01 / self.num_points
 
 	def run(self):
 		try:
@@ -121,7 +121,7 @@ class Screen:
 				((i % g)/g) * 255,
 				((i % b)/b) * 255,
 			)
-			pygame.draw.circle(self.screen, colour, point, 1)
+			pygame.draw.circle(self.screen, colour, point, 10)
 
 		pygame.display.flip()
 

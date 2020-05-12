@@ -2,7 +2,7 @@ import time
 
 import pygame
 
-import connection
+from caduceussocket import connection
 
 dead_zone = 0.25
 

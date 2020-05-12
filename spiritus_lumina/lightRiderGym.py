@@ -4,7 +4,8 @@ import math
 
 import numpy as np
 from gym import spaces
-import jazZy
+from spiritus_lumina import jazZy
+
 
 class Game():
     def __init__(self):
