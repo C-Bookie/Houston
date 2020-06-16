@@ -7,6 +7,8 @@ import pygame.midi
 from caduceussocket import connection
 
 
+from .midi_out import Piano
+
 def test1():
 	mid1 = mido.MidiFile('../midi/sample1-1.mid')
 	mid2 = mido.MidiFile('../midi/sample1-2.mid')
@@ -139,7 +141,7 @@ class MidiKeyboard(connection.Client):
 
 
 if __name__ == "__main__":
-	piano = midi_out.Piano()
+	piano = Piano()
 	piano.start()
 	keyboard = MidiKeyboard()
 	keyboard.run()
