@@ -33,7 +33,7 @@ from pygame.locals import *
 
 import matplotlib.pyplot as plt
 
-from caduceussocket import connection
+# from caduceussocket import connection
 
 deadzone = 0.25
 GEN_GRAPHS = False

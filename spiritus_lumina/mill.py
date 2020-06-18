@@ -9,6 +9,7 @@ def callback(client, data):
 	result = client.host.lp.gen_slice(np.array(recived["sample"]), recived["frame_rate"])
 	client.send_msg(connection.encode(result))
 
+
 class JazzMill(connection.Host):
 	def __init__(self):
 		super().__init__()
@@ -20,4 +21,3 @@ if __name__ == "__main__":
 	jm = JazzMill()
 	jm.start()
 	jm.join()
-
