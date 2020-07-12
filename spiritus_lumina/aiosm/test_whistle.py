@@ -171,18 +171,18 @@ class MidiWhistle(Client):
         # self.satCo = (1 / 5)
         # self.briCo = (1 / 1)
 
-        self.velocity = 0.005
+        self.velocity = 0.001
         self.curve = 2
         self.cap = 2
         # self.cutin = 0.0
         # self.cutoff = 1
         self.hueCo = 1
         self.satCo = 1/5
-        self.briCo = 1.5
+        self.briCo = 10
 
         self.frame_rate = 10
 
-        in_stream, input_info = openInputStream(1, self.frame_rate)
+        in_stream, input_info = openInputStream(2, self.frame_rate)
         # in_stream, input_info = openOutpoutStream(None, self.frame_rate)
         stream_framerate = int(input_info["defaultSampleRate"])
         chunk_size = stream_framerate // self.frame_rate
@@ -191,7 +191,7 @@ class MidiWhistle(Client):
 
         self.threshold = 4
 
-        bridgeIP = '192.168.1.101'
+        bridgeIP = '192.168.1.227'
         self.b = phue.Bridge(bridgeIP)
         self.b.connect()
 
