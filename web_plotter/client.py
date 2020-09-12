@@ -9,6 +9,7 @@ def index():
     with open("index.html", 'r') as file:
         return file.read(), 200
 
+
 # index
 @app.route('/transponder.js')
 def get_transponder():
