@@ -121,6 +121,11 @@ class ButtonManager():
 
 #https://github.com/intxcc/pyaudio_portaudio/blob/master/example/echo.py
 def openInputStream(id=None, framerate=None):
+	"""
+	if id is None, a list of appropriate ID's shall be printed
+	todo:
+		move into separate file
+	"""
 	useloopback = False
 
 	p = pyaudio.PyAudio()
@@ -184,8 +189,8 @@ def openInputStream(id=None, framerate=None):
 					rate=int(device_info["defaultSampleRate"]),
 					input=True,
 					frames_per_buffer=frames_per_buffer,
-					input_device_index=device_info["index"],
-					as_loopback=useloopback)
+					input_device_index=device_info["index"]
+					)
 
 	return stream, device_info
 
@@ -315,7 +320,7 @@ class MusicPlayer(threading.Thread):
 			s.channels = s.f.getnchannels()
 			s.framerate = s.f.getframerate()
 		else:
-			in_stream, input_info = openInputStream(1, frame_rate)
+			in_stream, input_info = openInputStream(2, frame_rate)
 			s.channels = input_info["maxOutputChannels"]
 			s.sampleWidth = s.channels
 			s.framerate = int(input_info["defaultSampleRate"])
@@ -330,7 +335,7 @@ class MusicPlayer(threading.Thread):
 
 
 		if s.OUTPUT:
-			out_stream, output_info = openOutpoutStream(9, frame_rate)
+			out_stream, output_info = openOutpoutStream(4, frame_rate)
 
 		mi = 0
 		if s.USE_WAV:
@@ -390,7 +395,7 @@ class MusicPlayer(threading.Thread):
 class LightPlayer(threading.Thread):
 	def __init__(s, bridgeIP=None, screen=True):
 		threading.Thread.__init__(s)
-		bridgeIP = '192.168.1.211'
+		# bridgeIP = '192.168.1.211'
 		if bridgeIP is not None:
 			s.b = phue.Bridge(bridgeIP)
 			s.b.connect()
@@ -655,20 +660,20 @@ def test4():
 		))
 		pacer.wait()
 
-def test5():
+def test5(path):
 	frame_rate = None
-	chunk = 10240
+	chunk = 1
 
 	USE_WAV = True
 	OUTPUT = True
 	if USE_WAV:
-		f = wave.open(path, 'r')
+		f = wave.open(path, 'rb')
 	else:
-		in_stream, input_info = openInputStream()
+		in_stream, input_info = openInputStream(13)
 		live_input_stream = LiveInputStream(in_stream, chunk)
 		live_input_stream.start()
 
-	out_stream, output_info = openOutpoutStream(8, chunk)
+	out_stream, output_info = openOutpoutStream(12, chunk)  # todo should pass sample rate if USE_WAV
 
 	while True:
 		if USE_WAV:
@@ -686,7 +691,8 @@ def test6():
 
 
 if __name__ == '__main__':
-	path = "audio/mass.wav"
+	# path = "audio/mass.wav"
+	path = "audio/mass48.wav"
 	# path = "./audio/kuzz.wav"	# run()
 	# path = "./audio/mozart.wav"
 	# path = "./audio/dubwise.wav"
@@ -694,9 +700,9 @@ if __name__ == '__main__':
 
 	# test1(path)
 	# test2(path)
-	test3(path)
+	# test3(path)
 	# test4()
-	# test5()
+	test5(path)
 
 
 
