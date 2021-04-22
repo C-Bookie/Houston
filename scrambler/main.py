@@ -1,28 +1,13 @@
+"""
+https://dolby.io/blog/capturing-high-quality-audio-with-python-and-pyaudio
+"""
+
 import wave
 from typing import List
 
 from pyaudio import PyAudio
 
-
-# https://dolby.io/blog/capturing-high-quality-audio-with-python-and-pyaudio
-
-CHUNK = 1024
-
-
-def get_asio_device_index(p: PyAudio) -> int:
-	"""returns the index of the ASIO device"""
-	info_api = [p.get_host_api_info_by_index(i) for i in range(0, p.get_host_api_count())]
-
-	asio_api_info = None
-	for api in info_api:
-		if api["name"] == "ASIO":
-			assert asio_api_info is None  # Multiple ASIO api's found
-			asio_api_info = api
-	assert asio_api_info is not None  # No ASIO api's found
-	assert asio_api_info["type"] == 3  # Unexpected type (no big deal)
-	assert asio_api_info["deviceCount"] == 1  # Multiple ASIO devices found
-	assert asio_api_info["defaultInputDevice"] == asio_api_info["defaultOutputDevice"]
-	return asio_api_info["defaultInputDevice"]
+from scrambler.audio_streams import get_api_by_name, open_stream, CHUNK_SIZE
 
 
 def run_experiment(p, experiment) -> None:
@@ -36,9 +21,10 @@ def run_experiment(p, experiment) -> None:
 	wave_file_enabled = experiment in ["wave", "mix"]
 	input_enabled = experiment in ["echo", "mix"]
 
-	no_of_channels = 2
-	framerate = 48000
-	sample_width = 2
+	channels = None
+	sample_width = None
+	sample_rate = None
+	chunk_size = CHUNK_SIZE
 
 	wave_file = None
 	if wave_file_enabled:
@@ -64,35 +50,31 @@ def run_experiment(p, experiment) -> None:
 			} for wave_file in waves
 		]
 		wave_file = waves[1]  # todo add variable
-		no_of_channels = wave_file.getnchannels()
-		framerate = wave_file.getframerate()
+		channels = wave_file.getnchannels()
+		sample_rate = wave_file.getframerate()
 		sample_width = wave_file.getsampwidth()
 
 	# Audio device setup
-	asio_device_index = get_asio_device_index(p)
-	input_index = asio_device_index
-	output_index = asio_device_index
+	api_info = get_api_by_name(p, "ASIO")
+	# api_info = p.get_default_host_api_info()
 
-	stream_format = p.get_format_from_width(sample_width)
+	input_device_info = p.get_device_info_by_index(api_info["defaultInputDevice"])
+	output_device_info = p.get_device_info_by_index(api_info["defaultOutputDevice"])
 
 	input_stream = None
 	if input_enabled:
-		# input_stream, input_info = open_input_stream(asio_device_index)
-		input_stream = p.open(
-			format=stream_format,
-			channels=no_of_channels,
-			rate=framerate,
-			input=True,
-			output_device_index=input_index,
+		input_stream = open_stream(p, input_device_info, True,
+			channels=channels,
+			sample_width=sample_width,
+			sample_rate=sample_rate,
+			chunk_size=chunk_size,
 		)
 
-	# output_stream, output_info = open_output_stream(asio_device_index)
-	output_stream = p.open(
-		format=stream_format,
-		channels=no_of_channels,
-		rate=framerate,
-		output=True,
-		output_device_index=output_index,
+	output_stream = open_stream(p, output_device_info, False,
+			channels=channels,
+			sample_width=sample_width,
+			sample_rate=sample_rate,
+			chunk_size=chunk_size,
 	)
 
 	wave_buffer = None
@@ -101,12 +83,12 @@ def run_experiment(p, experiment) -> None:
 	while True:
 		if wave_file_enabled:
 			assert wave_file is not None
-			wave_buffer = wave_file.readframes(CHUNK)
+			wave_buffer = wave_file.readframes(chunk_size)
 			if not wave_buffer:
 				break
 		elif input_enabled:
 			assert input_stream is not None
-			input_buffer = input_stream.read(CHUNK)
+			input_buffer = input_stream.read(chunk_size)
 
 		if experiment == "wave":
 			assert wave_buffer is not None
