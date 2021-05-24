@@ -44,7 +44,7 @@ def analysis(data_in):
         data_np = np.frombuffer(data_in, dtype=np.int16)
         data_np = data_np.astype(np.float64)
         data_np /= 2**16
-        data_np = data_np.reshape((-1, 2))
+        data_np = data_np.reshape((chunk, 2))
         # data_np = np.fft.fft2(data_np)
         # data_np = data_np.transpose().real
         plt.plot(data_np.real)
@@ -68,7 +68,7 @@ def callback_fn(data_in=None, frame_count=None, time_info=None, status=None):
     data_np = np.frombuffer(data_in, dtype=np.int16)
 
     data_torch = torch.from_numpy(data_np)
-    data_torch = torch.reshape(data_torch, (-1, 2))
+    data_torch = torch.reshape(data_torch, (chunk, 2))
     data_torch = data_torch.type(torch.float64)
     data_torch = torch.fft.fft2(data_torch)
     data_torch /= 2**16
