@@ -1,4 +1,6 @@
+import json
 from random import randint
+from typing import List, Tuple
 
 from aiosm import Client
 import asyncio
@@ -18,6 +20,47 @@ class BreadKnife(Client):
             self.loop()
         )
 
+    class LightRangeRequest:
+        def __init__(self, values: List[Tuple[int, int, int]], offset: int):
+            """A serializable request of light values
+            todo:
+                make @dataclass
+                test
+
+            :param values: a list of hsl values for each light
+            :param offset: the starting index of the light
+            """
+            # type check
+            for value in values:
+                for arg in value:
+                    if not 0 <= arg < 256:
+                        raise Exception("Values must be between 0 and 256 (including 0).")
+
+            self.values = values
+            self.offset = offset
+
+        def serialize(self) -> str:
+            """Return the request serialised to be sent"""
+            return json.dumps({"size": len(self.values), "values": self.values, "offset": self.offset})
+
+        def split(self, chunk_size: int) -> list:
+            """Splits a light request into a list of requests of the given maximum size.
+
+            :param chunk_size: the maximum size of each section
+            :return: List[BreadKnife.LightRangeRequest]
+            """
+            sections = len(self.values) // chunk_size
+            requests: List[BreadKnife.LightRangeRequest] = []
+            for i in range(sections):
+                start = i * chunk_size
+                end = (i + 1) * chunk_size
+                requests.append(BreadKnife.LightRangeRequest(self.values[start:end]))
+            return requests
+
+        async def send(self, mail_list: str, function: str):
+            parent: BreadKnife  # todo: unsure how to initialize
+            await parent.broadcast(mail_list, function, self.serialize())
+
     async def report(self, button: bool):
         await self.broadcast("pitta", "light", button)
 
@@ -30,9 +73,12 @@ class BreadKnife(Client):
             if not self.ready:  # todo add to self.wait()
                 return
 
-            lights = [(randint(0, 255), randint(0, 255), randint(0, 255)) for i in range(1)]
+            light_request = self.LightRangeRequest(
+                values=[(randint(0, 255), randint(0, 255), randint(0, 255)) for i in range(5)],
+                offset=3,
+            )
 
-            await self.broadcast("pitta", "fast_light", lights)
+            await self.broadcast("pitta", "fast_light", light_request.serialize())
 
             await self.wait()
 
