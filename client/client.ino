@@ -2,8 +2,8 @@
 //TODO: impliment https://arduinojson.org/v5/example/http-client/
 
 byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED};
-IPAddress ip(192, 168, 1, 235);
-IPAddress server(192, 168, 1, 233);
+IPAddress ip(192, 168, 0, 25);
+IPAddress server(192, 168, 0, 24);
 int port = 8089;
 
 const int MAX_BUFFER = 256;
@@ -61,6 +61,7 @@ void sendBuffer(Buffer* buffer) {
 
   client.write(buffer->header, HEADER_LEN);
   client.write(buffer->packet, buffer->len);
+  //fixme, need to incorporate ending tag \x03
 }
 
 void recieveBuffer(Buffer* buffer) {
@@ -105,12 +106,12 @@ void connectionSanity() {
 
 void setup() {
   Serial.begin(9600);
-  pinMode(LED_BUILTIN, OUTPUT);
+  pinMode(3, OUTPUT);
   bufferIn = newBuffer();
   bufferOut = newBuffer();
 
-  Ethernet.begin(mac, ip);
-  //  Ethernet.begin(mac);
+//   Ethernet.begin(mac, ip);
+   Ethernet.begin(mac);
   delay(1000);
   // Serial.setTimeout(10);
 }
@@ -119,7 +120,7 @@ void loop() {
   connectionSanity();
 //  Serial.print("Cycle: ");
 //  Serial.println(cycle, DEC);
-  digitalWrite(LED_BUILTIN, cycle%2==0);
+  digitalWrite(3, cycle%2==0);
   
   if (client.available()) {
     recieveBuffer(bufferIn);
