@@ -1,4 +1,3 @@
-import json
 from random import randint
 from typing import List, Tuple
 
@@ -8,7 +7,7 @@ import asyncio
 
 class BreadKnife(Client):
     def __init__(self):
-        super().__init__("bread_knife", "192.168.1.6", 8089)
+        super().__init__("bread_knife", "192.168.0.23", 8089)  # not working? check 3rd number
         self.update_rate = 5
 
     async def run(self):
@@ -39,9 +38,9 @@ class BreadKnife(Client):
             self.values = values
             self.offset = offset
 
-        def serialize(self) -> str:
+        def serialize(self) -> str:  # fixme rename
             """Return the request serialised to be sent"""
-            return json.dumps({"size": len(self.values), "values": self.values, "offset": self.offset})
+            return {"size": len(self.values), "values": self.values, "offset": self.offset}
 
         def split(self, chunk_size: int) -> list:
             """Splits a light request into a list of requests of the given maximum size.
@@ -73,12 +72,12 @@ class BreadKnife(Client):
             if not self.ready:  # todo add to self.wait()
                 return
 
-            light_request = self.LightRangeRequest(
-                values=[(randint(0, 255), randint(0, 255), randint(0, 255)) for i in range(5)],
-                offset=3,
-            )
-
-            await self.broadcast("pitta", "fast_light", light_request.serialize())
+            for i in range(0, 150, 10):
+                light_request = self.LightRangeRequest(
+                    values=[(randint(0, 255), randint(0, 255), randint(0, 255)) for i in range(10)],
+                    offset=i,
+                )
+                await self.broadcast("pitta", "fast_light", light_request.serialize())  # fixme why does this run twice
 
             await self.wait()
 

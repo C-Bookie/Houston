@@ -1,3 +1,9 @@
+// if the following is seen
+// rst:0xc (SW_CPU_RESET),boot:0x13 (SPI_FAST_FLASH_BOOT)
+// it is possible the ESP32 is starved of power when using the WI-FI radio
+
+
+#include <Arduino.h>
 
 #include <ArduinoJson.h>
 
@@ -6,8 +12,13 @@
 #if WIFI
   #include "WiFi.h"
 
-//   char ssid[] = "Cherry-Rose"; //  your network SSID (name)
-//   char pass[] = "DuckandMook";    // your network password (use for WPA, or use as key for WEP)
+  // char ssid[] = "Party!"; //  your network SSID (name)
+
+  // char ssid[] = "Cherry-Rose"; //  your network SSID (name)
+  // char pass[] = "DuckandMook";    // your network password (use for WPA, or use as key for WEP)
+
+  // char ssid[] = "BT-6FCJ6X"; //  your network SSID (name)
+  // char pass[] = "mHfKDAeMfV74cQ";    // your network password (use for WPA, or use as key for WEP)
 
   char ssid[] = "VM3877152"; //  your network SSID (name)
   char pass[] = "s7kyTysrddbg";    // your network password (use for WPA, or use as key for WEP)
@@ -24,7 +35,7 @@
   EthernetClient client;
 #endif
 
-IPAddress server(192, 168, 1, 182);
+IPAddress server(192, 168, 0, 23);
 int port = 8089;
 
 #define USING_HEADER false
@@ -32,7 +43,7 @@ int port = 8089;
 #if USING_HEADER
   const int HEADER_LEN = 4;
 #else
-  const int MAX_BUFFER = 256;
+  const int MAX_BUFFER = 3000;
   const unsigned char ETX = 0x03;  //end of transmission tag
 #endif
 
@@ -171,18 +182,21 @@ void printStatus() {
 }
 
 void connectionSanity() {
-  #if WIFI
-    while (status != WL_CONNECTED) {
-      Serial.print("Attempting to connect to SSID: ");
-      Serial.println(ssid);
-      // Connect to WPA/WPA2 network. Change this line if using open or WEP network:
-      status = WiFi.begin(ssid, pass);
-      // wait 10 seconds for connection:
-      delay(10000);
-    }
-  #endif
-
   while (!client.connected()) {
+    #if WIFI
+      while (status != WL_CONNECTED) {
+        Serial.print("Attempting to connect to SSID: ");
+        Serial.println(ssid);
+        // Connect to WPA/WPA2 network. Change this line if using open or WEP network:
+        status = WiFi.begin(ssid, pass);
+        // status = WiFi.begin(ssid);
+        if (status != WL_CONNECTED)
+          listNetworks();
+        // wait 10 seconds for connection:
+        delay(10000);
+      }
+    #endif
+
     Serial.println("Connecting...");
     if (client.connect(server, port)) {
       Serial.println("Connected");
@@ -194,11 +208,46 @@ void connectionSanity() {
       sendBuffer(bufferOut);
 
     } else
-    Serial.println("Connecting timedout!");
+      Serial.println("Connecting timedout!");
   }
   client.setTimeout(100);
 }
 
+
+void listNetworks() {
+  //https://docs.arduino.cc/library-examples/wifi-library/ScanNetworks
+  // scan for nearby networks:
+  Serial.println("** Scan Networks **");
+  int numSsid = WiFi.scanNetworks();
+  if (numSsid == -1) {
+    Serial.println("Couldn't get a wifi connection");
+    while (true);
+  }
+
+  // print the list of networks seen:
+  Serial.print("number of available networks:");
+  Serial.println(numSsid);
+
+  // print the network number and name for each network found:
+  for (int thisNet = 0; thisNet < numSsid; thisNet++) {
+    Serial.print(thisNet);
+    Serial.print(") ");
+    Serial.print(WiFi.SSID(thisNet));
+    Serial.print("\tSignal: ");
+    Serial.print(WiFi.RSSI(thisNet));
+    Serial.print(" dBm");
+  }
+}
+
+
+
+
+#include <FastLED.h>
+
+const int LED_STRIP_PIN = 27;
+
+#define NUM_LEDS    10
+CRGB leds[NUM_LEDS];
 
 int cycle = 0;
 
@@ -210,31 +259,31 @@ const int BTN_PIN = 35;
 bool last_btn_state = false;
 
 void log_local_sensors() {
-  bool new_btn_state = digitalread(BTN_PIN);
+  bool new_btn_state = digitalRead(BTN_PIN);
 
-  if (new_btn_state != old_btn_state) {    
+  if (new_btn_state != last_btn_state) {    
     //todo send 
     DynamicJsonDocument doc(1024);
 
-    {'type': 'broadcast', 'args': [{'type': 'mail', 'args': ['turn on']}, 'pitta']}
+    // {'type': 'broadcast', 'args': [{'type': 'mail', 'args': ['turn on']}, 'pitta']}
 
-    doc["type"] = "broadcast"
-    doc["args"][1] = "pizza"
+    doc["type"] = "broadcast";
+    doc["args"][1] = "pizza";
 
     doc["args"][0]["type"] = "report";
     doc["args"][0]["args"][0] = new_btn_state;  // button
 
-    bufferOut->len = measureJson(doc)
+    bufferOut->len = measureJson(doc);
     resizeBuffer(bufferOut, bufferOut->len);
-    serializeJson(doc, bufferOut->packet);
+    serializeJson(doc, bufferOut->packet, bufferOut->len);
     sendBuffer(bufferOut);
   
-    old_btn_state = new_btn_state;
+    last_btn_state = new_btn_state;
   }  
 }
 
 void parse_command(Buffer* command) {
-  DynamicJsonDocument doc(1024);
+  DynamicJsonDocument doc(256);  // may be an inappropriate use of MAX_BUFFER
   DeserializationError error = deserializeJson(doc, command->packet);
 
   if (error) {
@@ -245,10 +294,18 @@ void parse_command(Buffer* command) {
 
   const char* type = doc["type"];
 
-  if (type == "light") {
-    bool light = doc["args"][0];  / light
-    digitalWrite(LED_PIN, light);
-  } else {
+  if (String("light") == type) {  // may need to use String.equals()
+    bool light = doc["args"][0];  // light
+    digitalWrite(RED_LED_PIN, light);
+  } else if (String("fast_light") == type) {
+    for (int i=0; i<NUM_LEDS; i++) {
+      int r = doc["args"][0][i][0];
+      int g = doc["args"][0][i][1];
+      int b = doc["args"][0][i][2];
+      leds[i] = CRGB(r, g, b);  // fixme
+    }
+    // FastLED.show();
+  }else {
     Serial.print("Unregognised type: ");
     Serial.println(type);
   }
@@ -256,6 +313,7 @@ void parse_command(Buffer* command) {
 
 void setup() {
   Serial.begin(115200);
+  Serial.println("Setting up...");
   pinMode(LED_PIN, OUTPUT);
   pinMode(RED_LED_PIN, OUTPUT);
   pinMode(BTN_PIN, INPUT);
@@ -287,6 +345,14 @@ void setup() {
     // Serial.setTimeout(10);
 
   #endif
+
+  FastLED.addLeds<WS2812, LED_STRIP_PIN, GRB>(leds, NUM_LEDS);
+  for (int i=0; i<NUM_LEDS; i++) {
+    leds[i] = CRGB(128, 128, 128);
+  }
+  FastLED.show();
+
+  Serial.println("Setup complete");
 }
 
 void loop() {
@@ -297,6 +363,7 @@ void loop() {
   
   if (client.available()) {
     recieveBuffer(bufferIn);
+    parse_command(bufferIn);
   }
   
   if (Serial.available() > 0) {
@@ -313,7 +380,9 @@ void loop() {
       bufferOut->packet[i] = Serial.read();
     sendBuffer(bufferOut);
   }
-  cycle++;  
 
-  delay(2000);
+  log_local_sensors();
+
+  cycle++;
+  delay(10);
 }
