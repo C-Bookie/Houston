@@ -1,0 +1,36 @@
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+      <form method=post>
+          <input type=range  name="name_of_slider" onchange="send_inputs(this.value)">
+      </form>
+</body>
+
+</html>
+<script type="text/javascript">
+        function send_inputs(slide_value){
+            console.log("moo: " + slide_value)
+
+            request_dict = {
+                "slide_value": slide_value
+            }
+            const request = new XMLHttpRequest()
+
+            request.onreadystatechange = function()
+            {
+              if(this.readyState == 4 && this.status == 200) {
+                  console.log(this.responseText);
+              } else {
+                console.log("bad response " + this.readyState + " and " + this.status);
+              }
+            }
+
+            request.open("POST", "/foo", true)
+            request.setRequestHeader('Content-Type', 'application/json');
+            request.send(JSON.stringify(request_dict))
+        }
+</script>
+
