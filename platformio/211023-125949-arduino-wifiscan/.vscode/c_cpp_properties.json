@@ -8,12 +8,12 @@
         {
             "name": "PlatformIO",
             "includePath": [
-                "F:/projects/Houston/platformio/211023-125949-arduino-wifiscan/include",
-                "F:/projects/Houston/platformio/211023-125949-arduino-wifiscan/src",
+                "f:/projects/Houston/platformio/211023-125949-arduino-wifiscan/include",
+                "f:/projects/Houston/platformio/211023-125949-arduino-wifiscan/src",
                 "C:/Users/duck-/.platformio/packages/framework-arduinoespressif32/libraries/WiFi/src",
-                "F:/projects/Houston/platformio/211023-125949-arduino-wifiscan/.pio/libdeps/nodemcu-32s/FastLED/src",
+                "f:/projects/Houston/platformio/211023-125949-arduino-wifiscan/.pio/libdeps/nodemcu-32s/FastLED/src",
                 "C:/Users/duck-/.platformio/packages/framework-arduinoespressif32/libraries/SPI/src",
-                "F:/projects/Houston/platformio/211023-125949-arduino-wifiscan/.pio/libdeps/nodemcu-32s/ArduinoJson/src",
+                "f:/projects/Houston/platformio/211023-125949-arduino-wifiscan/.pio/libdeps/nodemcu-32s/ArduinoJson/src",
                 "C:/Users/duck-/.platformio/packages/framework-arduinoespressif32/tools/sdk/include/config",
                 "C:/Users/duck-/.platformio/packages/framework-arduinoespressif32/tools/sdk/include/app_trace",
                 "C:/Users/duck-/.platformio/packages/framework-arduinoespressif32/tools/sdk/include/app_update",
@@ -108,12 +108,12 @@
             "browse": {
                 "limitSymbolsToIncludedHeaders": true,
                 "path": [
-                    "F:/projects/Houston/platformio/211023-125949-arduino-wifiscan/include",
-                    "F:/projects/Houston/platformio/211023-125949-arduino-wifiscan/src",
+                    "f:/projects/Houston/platformio/211023-125949-arduino-wifiscan/include",
+                    "f:/projects/Houston/platformio/211023-125949-arduino-wifiscan/src",
                     "C:/Users/duck-/.platformio/packages/framework-arduinoespressif32/libraries/WiFi/src",
-                    "F:/projects/Houston/platformio/211023-125949-arduino-wifiscan/.pio/libdeps/nodemcu-32s/FastLED/src",
+                    "f:/projects/Houston/platformio/211023-125949-arduino-wifiscan/.pio/libdeps/nodemcu-32s/FastLED/src",
                     "C:/Users/duck-/.platformio/packages/framework-arduinoespressif32/libraries/SPI/src",
-                    "F:/projects/Houston/platformio/211023-125949-arduino-wifiscan/.pio/libdeps/nodemcu-32s/ArduinoJson/src",
+                    "f:/projects/Houston/platformio/211023-125949-arduino-wifiscan/.pio/libdeps/nodemcu-32s/ArduinoJson/src",
                     "C:/Users/duck-/.platformio/packages/framework-arduinoespressif32/tools/sdk/include/config",
                     "C:/Users/duck-/.platformio/packages/framework-arduinoespressif32/tools/sdk/include/app_trace",
                     "C:/Users/duck-/.platformio/packages/framework-arduinoespressif32/tools/sdk/include/app_update",
@@ -207,7 +207,7 @@
                 ]
             },
             "defines": [
-                "PLATFORMIO=50205",
+                "PLATFORMIO=60001",
                 "ARDUINO_NodeMCU_32S",
                 "ESP32",
                 "ESP_PLATFORM",

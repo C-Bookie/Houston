@@ -6,7 +6,9 @@
 #include <Arduino.h>
 #include <FastLED.h> 
 
-const int LED_PIN = 27;
+const int DIAL_PIN = 36;
+
+const int LED_STRIP_PIN = 27;
 const int NUM_LEDS = 150;
 CRGB leds[NUM_LEDS];
 
@@ -47,12 +49,15 @@ float gap = 50;
 
 void setup() {
   Serial.begin(115200);
-  FastLED.addLeds<WS2812, LED_PIN, GRB>(leds, NUM_LEDS);
+  FastLED.addLeds<WS2812, LED_STRIP_PIN, GRB>(leds, NUM_LEDS);
 
   for (int i=0; i<NUM_LEDS; i++) {
     leds[i] = CRGB(0, 0, 0);
   }
   FastLED.show();
+
+  
+  pinMode(DIAL_PIN, INPUT);
   
   // initialize LED digital pin as an output.
   pinMode(LED_BUILTIN, OUTPUT);
@@ -79,6 +84,8 @@ void loop() {
   //   }
   // }
 
+  int dial_value = analogRead(DIAL_PIN);
+  Serial.println(dial_value);
 
   // Update lights
   unsigned long now = millis();
@@ -93,7 +100,7 @@ void loop() {
 
 
     // double s = 0.607;
-    double s = 1;
+    double s = float(dial_value) / (1<<12);
     double l = 0.1;// - (beat_fraction/64.);
 
     // double l = sin(((beat_fraction)-0.5) / 2);

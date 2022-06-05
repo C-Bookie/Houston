@@ -183,8 +183,12 @@ void printStatus() {
 
 void connectionSanity() {
   while (!client.connected()) {
+    fill_strip(128, 128, 0);
+
     #if WIFI
       while (status != WL_CONNECTED) {
+        fill_strip(128, 0, 0);
+
         Serial.print("Attempting to connect to SSID: ");
         Serial.println(ssid);
         // Connect to WPA/WPA2 network. Change this line if using open or WEP network:
@@ -208,9 +212,11 @@ void connectionSanity() {
       sendBuffer(bufferOut);
 
     } else
+      fill_strip(0, 0, 128);
       Serial.println("Connecting timedout!");
   }
   client.setTimeout(100);
+  fill_strip(0, 128, 0);
 }
 
 
@@ -322,9 +328,20 @@ void parse_command(Buffer* command) {
   }
 }
 
+void fill_strip(int r, int g, int b) {
+    FastLED.addLeds<WS2812, LED_STRIP_PIN, GRB>(leds, NUM_LEDS);
+  for (int i=0; i<NUM_LEDS; i++) {
+    leds[i] = CRGB(r, g, b);
+  }
+  FastLED.show();
+}
+
 void setup() {
   Serial.begin(115200);
   Serial.println("Setting up...");
+
+  fill_strip(0, 128, 128);
+
   pinMode(LED_PIN, OUTPUT);
   pinMode(RED_LED_PIN, OUTPUT);
   pinMode(BTN_PIN, INPUT);
@@ -357,11 +374,7 @@ void setup() {
 
   #endif
 
-  FastLED.addLeds<WS2812, LED_STRIP_PIN, GRB>(leds, NUM_LEDS);
-  for (int i=0; i<NUM_LEDS; i++) {
-    leds[i] = CRGB(0, 128, 0);
-  }
-  FastLED.show();
+  fill_strip(128, 128, 0);
 
   Serial.println("Setup complete");
 }

@@ -7,7 +7,8 @@ import asyncio
 
 class BreadKnife(Client):
     def __init__(self):
-        super().__init__("bread_knife", "192.168.0.23", 8089)  # not working? check 3rd number
+        # super().__init__("bread_knife", "192.168.0.23", 8089)  # not working? check 3rd number of IP
+        super().__init__("bread_knife", "192.168.5.1", 8888)  # not working? check 3rd number of IP
         self.update_rate = 5
 
     async def run(self):

@@ -9,8 +9,11 @@
 //   char ssid[] = "Cherry-Rose"; //  your network SSID (name)
 //   char pass[] = "DuckandMook";    // your network password (use for WPA, or use as key for WEP)
 
-  char ssid[] = "VM3877152"; //  your network SSID (name)
-  char pass[] = "s7kyTysrddbg";    // your network password (use for WPA, or use as key for WEP)
+//   char ssid[] = "VM3877152"; //  your network SSID (name)
+//   char pass[] = "s7kyTysrddbg";    // your network password (use for WPA, or use as key for WEP)
+
+  char ssid[] = "BERT_NET"; //  your network SSID (name)
+  char pass[] = "ABCD1234";    // your network password (use for WPA, or use as key for WEP)
 
   int status = WL_IDLE_STATUS;
   WiFiClient client;
@@ -24,8 +27,11 @@
   EthernetClient client;
 #endif
 
-IPAddress server(192, 168, 1, 182);
-int port = 8089;
+// IPAddress server(192, 168, 1, 182);
+// int port = 8089;
+
+IPAddress server(192, 168, 5, 1);
+int port = 8888;
 
 #define USING_HEADER false
 
