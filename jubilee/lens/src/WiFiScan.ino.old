@@ -17,11 +17,11 @@
   // char ssid[] = "Cherry-Rose"; //  your network SSID (name)
   // char pass[] = "DuckandMook";    // your network password (use for WPA, or use as key for WEP)
 
-  char ssid[] = "BT-6FCJ6X"; //  your network SSID (name)
-  char pass[] = "mHfKDAeMfV74cQ";    // your network password (use for WPA, or use as key for WEP)
+  // char ssid[] = "BT-6FCJ6X"; //  your network SSID (name)
+  // char pass[] = "mHfKDAeMfV74cQ";    // your network password (use for WPA, or use as key for WEP)
 
-//   char ssid[] = "VM3877152"; //  your network SSID (name)
-//   char pass[] = "s7kyTysrddbg";    // your network password (use for WPA, or use as key for WEP)
+  char ssid[] = "VM3877152"; //  your network SSID (name)
+  char pass[] = "s7kyTysrddbg";    // your network password (use for WPA, or use as key for WEP)
 
   int status = WL_IDLE_STATUS;
   WiFiClient client;
@@ -145,9 +145,9 @@ void recieveBuffer(Buffer* buffer) {
     buffer->len = index;
   #endif
 
-  // Serial.print("Recieved: ");
-  // Serial.write(buffer->packet, buffer->len);
-  // Serial.println();
+  Serial.print("Recieved: ");
+  Serial.write(buffer->packet, buffer->len);
+  Serial.println();
 }
 
 void printStatus() {
@@ -183,12 +183,8 @@ void printStatus() {
 
 void connectionSanity() {
   while (!client.connected()) {
-    fill_strip(128, 128, 0);
-
     #if WIFI
       while (status != WL_CONNECTED) {
-        fill_strip(128, 0, 0);
-
         Serial.print("Attempting to connect to SSID: ");
         Serial.println(ssid);
         // Connect to WPA/WPA2 network. Change this line if using open or WEP network:
@@ -212,11 +208,9 @@ void connectionSanity() {
       sendBuffer(bufferOut);
 
     } else
-      fill_strip(0, 0, 128);
       Serial.println("Connecting timedout!");
   }
   client.setTimeout(100);
-  fill_strip(0, 128, 0);
 }
 
 
@@ -252,7 +246,7 @@ void listNetworks() {
 
 const int LED_STRIP_PIN = 27;
 
-#define NUM_LEDS    150
+#define NUM_LEDS    10
 CRGB leds[NUM_LEDS];
 
 int cycle = 0;
@@ -289,8 +283,7 @@ void log_local_sensors() {
 }
 
 void parse_command(Buffer* command) {
-  // maybe use JsonVariant
-  DynamicJsonDocument doc(2560);  // may be an inappropriate use of MAX_BUFFER
+  DynamicJsonDocument doc(256);  // may be an inappropriate use of MAX_BUFFER
   DeserializationError error = deserializeJson(doc, command->packet);
 
   if (error) {
@@ -299,49 +292,28 @@ void parse_command(Buffer* command) {
     return;
   }
 
-  // Serial.println("Parsing command:");
-  // serializeJsonPretty(doc, Serial);
-
-  // Serial.println("Keys:");
-  // for (JsonPair keyValue : doc) {
-  //   Serial.println(keyValue.key().c_str());
-  // }
-
   const char* type = doc["type"];
 
   if (String("light") == type) {  // may need to use String.equals()
     bool light = doc["args"][0];  // light
     digitalWrite(RED_LED_PIN, light);
   } else if (String("fast_light") == type) {
-    int size = doc["args"][0]["size"];
-    int offset = doc["args"][0]["offset"];
-    for (int i=0; i<size; i++) {
-      int r = doc["args"][0]["values"][i][0];
-      int g = doc["args"][0]["values"][i][1];
-      int b = doc["args"][0]["values"][i][2];
-      leds[i+offset] = CRGB(r, g, b);  // fixme
+    for (int i=0; i<NUM_LEDS; i++) {
+      int r = doc["args"][0][i][0];
+      int g = doc["args"][0][i][1];
+      int b = doc["args"][0][i][2];
+      leds[i] = CRGB(r, g, b);  // fixme
     }
-    FastLED.show();
+    // FastLED.show();
   }else {
     Serial.print("Unregognised type: ");
     Serial.println(type);
   }
 }
 
-void fill_strip(int r, int g, int b) {
-    FastLED.addLeds<WS2812, LED_STRIP_PIN, GRB>(leds, NUM_LEDS);
-  for (int i=0; i<NUM_LEDS; i++) {
-    leds[i] = CRGB(r, g, b);
-  }
-  FastLED.show();
-}
-
 void setup() {
   Serial.begin(115200);
   Serial.println("Setting up...");
-
-  fill_strip(0, 128, 128);
-
   pinMode(LED_PIN, OUTPUT);
   pinMode(RED_LED_PIN, OUTPUT);
   pinMode(BTN_PIN, INPUT);
@@ -374,7 +346,11 @@ void setup() {
 
   #endif
 
-  fill_strip(128, 128, 0);
+  FastLED.addLeds<WS2812, LED_STRIP_PIN, GRB>(leds, NUM_LEDS);
+  for (int i=0; i<NUM_LEDS; i++) {
+    leds[i] = CRGB(128, 128, 128);
+  }
+  FastLED.show();
 
   Serial.println("Setup complete");
 }

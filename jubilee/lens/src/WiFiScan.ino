@@ -7,6 +7,8 @@
 
 #include <ArduinoJson.h>
 
+#include <Base64.h>
+
 #define WIFI true
 
 #if WIFI
@@ -20,8 +22,11 @@
   char ssid[] = "BT-6FCJ6X"; //  your network SSID (name)
   char pass[] = "mHfKDAeMfV74cQ";    // your network password (use for WPA, or use as key for WEP)
 
-//   char ssid[] = "VM3877152"; //  your network SSID (name)
-//   char pass[] = "s7kyTysrddbg";    // your network password (use for WPA, or use as key for WEP)
+  // char ssid[] = "VM3877152"; //  your network SSID (name)
+  // char pass[] = "s7kyTysrddbg";    // your network password (use for WPA, or use as key for WEP)
+
+  // char ssid[] = "leaf"; //  your network SSID (name)
+  // char pass[] = "";    // your network password (use for WPA, or use as key for WEP)
 
   int status = WL_IDLE_STATUS;
   WiFiClient client;
@@ -35,7 +40,8 @@
   EthernetClient client;
 #endif
 
-IPAddress server(192, 168, 0, 23);
+// IPAddress server(192, 168, 5, 1);
+IPAddress server(192, 168, 1, 146);
 int port = 8089;
 
 #define USING_HEADER false
@@ -192,18 +198,43 @@ void connectionSanity() {
         Serial.print("Attempting to connect to SSID: ");
         Serial.println(ssid);
         // Connect to WPA/WPA2 network. Change this line if using open or WEP network:
-        status = WiFi.begin(ssid, pass);
-        // status = WiFi.begin(ssid);
-        if (status != WL_CONNECTED)
+        if (pass != "")
+            WiFi.begin(ssid, pass);
+        else
+            WiFi.begin(ssid);
+        status = WiFi.waitForConnectResult();
+        if (status != WL_CONNECTED) {
+          Serial.print("Connecting failed with status: ");
+          if (status == WL_IDLE_STATUS)
+              Serial.println("WL_IDLE_STATUS");
+          else if (status == WL_NO_SSID_AVAIL)
+              Serial.println("WL_NO_SSID_AVAIL");
+          else if (status == WL_SCAN_COMPLETED)
+              Serial.println("WL_SCAN_COMPLETED");
+          else if (status == WL_CONNECT_FAILED)
+              Serial.println("WL_CONNECT_FAILED");
+          else if (status == WL_CONNECTION_LOST)
+              Serial.println("WL_CONNECTION_LOST");
+          else if (status == WL_DISCONNECTED)
+              Serial.println("WL_DISCONNECTED");
+          else
+              Serial.println(WL_CONNECTED);
           listNetworks();
-        // wait 10 seconds for connection:
-        delay(10000);
+          // wait 1 second for connection:
+          delay(1000);
+        }
       }
     #endif
 
-    Serial.println("Connecting...");
+    Serial.print("Connecting to ");
+    Serial.print(server);
+    Serial.print(":");
+    Serial.print(port);
+    Serial.println("...");
+    client.setTimeout(10000);
     if (client.connect(server, port)) {
       Serial.println("Connected");
+      fill_strip(0, 128, 0);
       printStatus();
 
       unsigned char message[] = "{\"type\": \"subscribe\", \"args\": [\"pitta\"]}";
@@ -211,12 +242,13 @@ void connectionSanity() {
       memcpy(bufferOut->packet, message, bufferOut->len);
       sendBuffer(bufferOut);
 
-    } else
+    } else {
       fill_strip(0, 0, 128);
       Serial.println("Connecting timedout!");
+      // wait 1 second for connection:
+      delay(1000);
+    }
   }
-  client.setTimeout(100);
-  fill_strip(0, 128, 0);
 }
 
 
@@ -241,7 +273,7 @@ void listNetworks() {
     Serial.print(WiFi.SSID(thisNet));
     Serial.print("\tSignal: ");
     Serial.print(WiFi.RSSI(thisNet));
-    Serial.print(" dBm");
+    Serial.println(" dBm");
   }
 }
 
@@ -315,23 +347,42 @@ void parse_command(Buffer* command) {
   } else if (String("fast_light") == type) {
     int size = doc["args"][0]["size"];
     int offset = doc["args"][0]["offset"];
+
     for (int i=0; i<size; i++) {
-      int r = doc["args"][0]["values"][i][0];
-      int g = doc["args"][0]["values"][i][1];
-      int b = doc["args"][0]["values"][i][2];
-      leds[i+offset] = CRGB(r, g, b);  // fixme
+      char inputString[4];
+      for (int n=0; n<4; n++) {
+          Serial.println((i*4)+n);
+          inputString[n] = doc["args"][0]["values"][(i*4)+n];
+      }
+      char decodedString[3];
+
+      Base64.decode(decodedString, inputString, size*4);
+      leds[i+offset] = CRGB(decodedString[0], decodedString[1], decodedString[2]);  // fixme
+
+//       int r = doc["args"][0]["values"][i][0];
+//       int g = doc["args"][0]["values"][i][1];
+//       int b = doc["args"][0]["values"][i][2];
+//       leds[i+offset] = CRGB(r, g, b);  // fixme
     }
     FastLED.show();
+
+//     delete values;
+//     delete inputString;
+//     delete decodedString;
   }else {
     Serial.print("Unregognised type: ");
     Serial.println(type);
   }
+  Serial.print("Moo1 ");
 }
 
 void fill_strip(int r, int g, int b) {
     FastLED.addLeds<WS2812, LED_STRIP_PIN, GRB>(leds, NUM_LEDS);
   for (int i=0; i<NUM_LEDS; i++) {
-    leds[i] = CRGB(r, g, b);
+    if (i < 10)
+        leds[i] = CRGB(r, g, b);
+    else
+        leds[i] = CRGB(0, 0, 0);
   }
   FastLED.show();
 }
@@ -388,6 +439,8 @@ void loop() {
   if (client.available()) {
     recieveBuffer(bufferIn);
     parse_command(bufferIn);
+    Serial.print("Moo2 ");
+
   }
   
   if (Serial.available() > 0) {

@@ -3,7 +3,9 @@ Using https://thepi.io/how-to-use-your-raspberry-pi-as-a-wireless-access-point/
 if the wifi adapter won't power up, or the pi keeps hitting kernal panics, then it might be underpowered
     a good test is plugging the adapter in, if it reboots the system, then it's probably a surge of power demand
 """
+import array
 import asyncio
+import base64
 from typing import List, Tuple
 
 from PIL import Image
@@ -90,8 +92,8 @@ class LightRangeRequest:
 
     def serialize(self) -> dict:  # fixme rename
         """Return the request serialised to be sent"""
-        values = self.values
-        return {"size": len(self.values), "values": self.values, "offset": self.offset}
+        values = "".join([base64.b64encode(array.array('B', led)).decode('utf-8') for led in self.values])
+        return {"size": len(self.values), "values": values, "offset": self.offset}
 
 
 if RUNNING_ON_PI:

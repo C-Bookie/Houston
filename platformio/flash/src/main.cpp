@@ -12,7 +12,7 @@ const int LED_STRIP_PIN = 27;
 const int NUM_LEDS = 150;
 CRGB leds[NUM_LEDS];
 
-const int LEDS_USED = 10;
+const int LEDS_USED = 150;
 
 float col[3];
 
@@ -37,7 +37,7 @@ float float_mod(float a, int b) {
 
 int cycle = 0;
 
-float bpm = 120;
+float bpm = 300;
 float beats = 4;
 float bpm_fps = 60 / bpm;
 float min_fps = 30;
@@ -93,19 +93,24 @@ void loop() {
   for (int i=0; i<LEDS_USED; i++) {
     // float beat_fraction = float_mod(now / (1000. / (bpm / 60.)), 1);
     float beat_fraction = float_mod(now / (1000. / ((bpm/beats) / 60.)), 1);
-    float id = beat_fraction + ((float)i / LEDS_USED);
+    float id = beat_fraction + ((float)i / (LEDS_USED / beats));
 
     // double h = float_mod(id, LEDS_USED) / (float)LEDS_USED;
     double h = id;
 
+    double saw = pow(1 - float_mod(now / (1000. / (50 / 60.)), 1), 2);
 
-    // double s = 0.607;
-    double s = float(dial_value) / (1<<12);
-    double l = 0.1;// - (beat_fraction/64.);
+//     double s = 0.607;
+    double s = 0.7;
+//    double s = float(dial_value) / (1<<12);
+    double l = 0.1 * (0.2 + (0.8 * saw));// - (beat_fraction/64.);
 
     // double l = sin(((beat_fraction)-0.5) / 2);
 
     hsv2rgb(h, s, l, col);
+
+    // red amplification
+    col[0] = pow(col[0],  0.5);
 
     uint8_t r = (int)((col[0]) * 255);
     uint8_t g = (int)((col[1]) * 255);
