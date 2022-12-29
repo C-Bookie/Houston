@@ -5,7 +5,7 @@
 
 #include <Arduino.h>
 
-#include <ArduinoJson.h>
+// #include <ArduinoJson.h>
 
 #include <Base64.h>
 
@@ -41,7 +41,7 @@
 #endif
 
 // IPAddress server(192, 168, 5, 1);
-IPAddress server(192, 168, 1, 146);
+IPAddress server(192, 168, 1, 130);
 int port = 8089;
 
 #define USING_HEADER false
@@ -299,80 +299,80 @@ bool last_btn_state = false;
 void log_local_sensors() {
   bool new_btn_state = digitalRead(BTN_PIN);
 
-  if (new_btn_state != last_btn_state) {    
-    //todo send 
-    DynamicJsonDocument doc(1024);
-
-    // {'type': 'broadcast', 'args': [{'type': 'mail', 'args': ['turn on']}, 'pitta']}
-
-    doc["type"] = "broadcast";
-    doc["args"][1] = "pizza";
-
-    doc["args"][0]["type"] = "report";
-    doc["args"][0]["args"][0] = new_btn_state;  // button
-
-    bufferOut->len = measureJson(doc);
-    resizeBuffer(bufferOut, bufferOut->len);
-    serializeJson(doc, bufferOut->packet, bufferOut->len);
-    sendBuffer(bufferOut);
-  
-    last_btn_state = new_btn_state;
-  }  
+//   if (new_btn_state != last_btn_state) {
+//     //todo send
+//     DynamicJsonDocument doc(1024);
+//
+//     // {'type': 'broadcast', 'args': [{'type': 'mail', 'args': ['turn on']}, 'pitta']}
+//
+//     doc["type"] = "broadcast";
+//     doc["args"][1] = "pizza";
+//
+//     doc["args"][0]["type"] = "report";
+//     doc["args"][0]["args"][0] = new_btn_state;  // button
+//
+//     bufferOut->len = measureJson(doc);
+//     resizeBuffer(bufferOut, bufferOut->len);
+//     serializeJson(doc, bufferOut->packet, bufferOut->len);
+//     sendBuffer(bufferOut);
+//
+//     last_btn_state = new_btn_state;
+//   }
 }
 
 void parse_command(Buffer* command) {
-  // maybe use JsonVariant
-  DynamicJsonDocument doc(2560);  // may be an inappropriate use of MAX_BUFFER
-  DeserializationError error = deserializeJson(doc, command->packet);
-
-  if (error) {
-    Serial.print(F("deserializeJson() failed: "));
-    Serial.println(error.f_str());
-    return;
-  }
-
-  // Serial.println("Parsing command:");
-  // serializeJsonPretty(doc, Serial);
-
-  // Serial.println("Keys:");
-  // for (JsonPair keyValue : doc) {
-  //   Serial.println(keyValue.key().c_str());
-  // }
-
-  const char* type = doc["type"];
-
-  if (String("light") == type) {  // may need to use String.equals()
-    bool light = doc["args"][0];  // light
-    digitalWrite(RED_LED_PIN, light);
-  } else if (String("fast_light") == type) {
-    int size = doc["args"][0]["size"];
-    int offset = doc["args"][0]["offset"];
-
-    for (int i=0; i<size; i++) {
-      char inputString[4];
-      for (int n=0; n<4; n++) {
-          Serial.println((i*4)+n);
-          inputString[n] = doc["args"][0]["values"][(i*4)+n];
-      }
-      char decodedString[3];
-
-      Base64.decode(decodedString, inputString, size*4);
-      leds[i+offset] = CRGB(decodedString[0], decodedString[1], decodedString[2]);  // fixme
-
-//       int r = doc["args"][0]["values"][i][0];
-//       int g = doc["args"][0]["values"][i][1];
-//       int b = doc["args"][0]["values"][i][2];
-//       leds[i+offset] = CRGB(r, g, b);  // fixme
-    }
-    FastLED.show();
-
-//     delete values;
-//     delete inputString;
-//     delete decodedString;
-  }else {
-    Serial.print("Unregognised type: ");
-    Serial.println(type);
-  }
+//   // maybe use JsonVariant
+//   DynamicJsonDocument doc(2560);  // may be an inappropriate use of MAX_BUFFER
+//   DeserializationError error = deserializeJson(doc, command->packet);
+//
+//   if (error) {
+//     Serial.print(F("deserializeJson() failed: "));
+//     Serial.println(error.f_str());
+//     return;
+//   }
+//
+//   // Serial.println("Parsing command:");
+//   // serializeJsonPretty(doc, Serial);
+//
+//   // Serial.println("Keys:");
+//   // for (JsonPair keyValue : doc) {
+//   //   Serial.println(keyValue.key().c_str());
+//   // }
+//
+//   const char* type = doc["type"];
+//
+//   if (String("light") == type) {  // may need to use String.equals()
+//     bool light = doc["args"][0];  // light
+//     digitalWrite(RED_LED_PIN, light);
+//   } else if (String("fast_light") == type) {
+//     int size = doc["args"][0]["size"];
+//     int offset = doc["args"][0]["offset"];
+//
+//     for (int i=0; i<size; i++) {
+//       char inputString[4];
+//       for (int n=0; n<4; n++) {
+//           Serial.println((i*4)+n);
+//           inputString[n] = doc["args"][0]["values"][(i*4)+n];
+//       }
+//       char decodedString[3];
+//
+//       Base64.decode(decodedString, inputString, size*4);
+//       leds[i+offset] = CRGB(decodedString[0], decodedString[1], decodedString[2]);  // fixme
+//
+// //       int r = doc["args"][0]["values"][i][0];
+// //       int g = doc["args"][0]["values"][i][1];
+// //       int b = doc["args"][0]["values"][i][2];
+// //       leds[i+offset] = CRGB(r, g, b);  // fixme
+//     }
+//     FastLED.show();
+//
+// //     delete values;
+// //     delete inputString;
+// //     delete decodedString;
+//   }else {
+//     Serial.print("Unregognised type: ");
+//     Serial.println(type);
+//   }
   Serial.print("Moo1 ");
 }
 

@@ -20,7 +20,7 @@ import colorsys
 
 import math
 
-RUNNING_ON_PI = True
+RUNNING_ON_PI = False
 
 if RUNNING_ON_PI:
     import Adafruit_SSD1306
@@ -99,7 +99,7 @@ class LightRangeRequest:
 if RUNNING_ON_PI:
     addr, port = "192.168.5.1", 8089
 else:
-    addr, port = "192.168.1.250", 8089
+    addr, port = "192.168.1.130", 8089
 
 host = aiosm.Host(addr=addr, port=port)
 
@@ -147,7 +147,7 @@ async def director():
 
 #        display.paint(image)
 
-        number_of_leds = 150
+        number_of_leds = 30
         batch = 30
         for i in range(0, number_of_leds, batch):
             values = []
@@ -177,7 +177,7 @@ async def director():
             await client.broadcast("pitta", "fast_light", light_request.serialize())  # fixme why does this run twice
 
         # clock.tick(1)  # fps
-        await asyncio.sleep(1/4)
+        await asyncio.sleep(4)
 
 
 # look into async executor pool https://stackoverflow.com/questions/29269370/how-to-properly-create-and-run-concurrent-tasks-using-pythons-asyncio-module
@@ -209,7 +209,7 @@ def test():
     for y in range(0, display.height, 8):
         for x in range(0, display.width, 8):
             draw.rectangle((x, y, x+8, y+8), 255)
-            time.sleep(0.25)
+            time.sleep(5)
             display.paint(image)
 
 
