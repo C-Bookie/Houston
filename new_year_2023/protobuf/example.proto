@@ -1,15 +1,17 @@
-// First, we need to define the message structure we want to use.
-// This is done using the `protoc` compiler and a `.proto` file.
-// For example, let's define a simple message that has a single field,
-// an integer called "value":
-
 syntax = "proto3";
 
-message ExampleMessage {
-  int32 value = 1;
-  repeated int32 value_array = 2;
+message RGBValue {
+  int32 red = 1;
+  int32 green = 2;
+  int32 blue = 3;
 }
 
-// To use this message in Python, we need to compile it using the
-// `protoc` compiler. This will generate a Python module that we can
-// import and use to work with the message.
+message LightRequest {
+  int32 lights = 1;
+  int32 offset = 2;
+  repeated RGBValue value_array = 3;
+}
+
+message SensorLog {
+  int32 pot = 1;
+}
