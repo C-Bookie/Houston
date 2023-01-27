@@ -23,7 +23,7 @@ from google.protobuf import message as protobuf_message
 # from aiosm.responder import Responder
 # from aiosm.host import Host
 
-from new_year_2023.python.example_pb2 import LightRequest, RGBValue, SensorLog
+from coronation.python.example_pb2 import LightRequest, RGBValue, SensorLog
 
 print("Begining project jubliee")
 
