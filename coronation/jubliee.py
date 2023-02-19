@@ -7,39 +7,21 @@ if the wifi adapter won't power up, or the pi keeps hitting kernal panics, then 
         aiosm
             use header
                 use Radio.ETX for end of header?
+                    no
 """
 import asyncio
 import random
-import time
 
 import aiosm
-from aiosm.dprint import dprint
 
 from google.protobuf import message as protobuf_message
-
-# from aiosm.radio import Radio
-# from aiosm.clinet import Client
-# from aiosm.node import Node
-# from aiosm.responder import Responder
-# from aiosm.host import Host
 
 from coronation.python.example_pb2 import LightRequest, RGBValue, SensorLog
 
 print("Begining project jubliee")
 
 
-addr, port = "192.168.1.130", 8089
-
-# host = aiosm.Host(addr=addr, port=port)
-
-
-def hacked_send():
-    print("moo")
-    return "moo"
-
-# fixme
-aiosm.node.Node.send = hacked_send
-
+addr, port = "192.168.0.18", 8089
 
 pot_value = 0
 last_request = 0
@@ -50,30 +32,71 @@ USING_HEADER = True
 HEADER_LEN = 4  # size in bytes
 
 
-class NodeHacked(aiosm.node.Node):
-    def unpack(self, data: bytes) -> str:
-        if USING_HEADER:
-            raise NotImplemented()
+class RadioHacked(aiosm.radio.Radio):
+    def prepare(self, data: bytes) -> bytes:
+        if not USING_HEADER:
+            if self.ETX in data:
+                raise Exception(
+                    'message contains exit sequence: ' + self.ETX.decode())  # todo create custom Exception
+            data += self.ETX
         else:
-            return data[0:-self.ETX_LEN]
+            data_len = len(data)
+            header = data_len.to_bytes(HEADER_LEN, byteorder='big')
+            data = header + data
+        return data
 
+    def unpack(self, data: bytes) -> bytes:
+        if not USING_HEADER:
+            return data[0:-self.ETX_LEN]
+        pass
+
+    async def receive(self) -> str:
+        if not USING_HEADER:
+            return await super().receive()
+
+        # todo consider using self.reader.readexactly(HEADER_LEN)
+        raw_data_len = await self.reader.read(HEADER_LEN)  # fixme
+        data_len = int.from_bytes(raw_data_len, byteorder='big')
+        message = await self.reader.read(data_len)
+        return message
+
+
+class ResponderHacked(aiosm.responder.Responder, RadioHacked):
+    def prepare(self, message: protobuf_message) -> bytes:
+        data = message.SerializeToString()
+        return RadioHacked.prepare(self, data)  # todo review if not using super() is safe
+
+    def unpack(self, data: bytes) -> any:
+        # todo use protobuf
+        #  cannot call <protobuf_message>.ParseFromString() without knowing the message type
+        return RadioHacked.unpack(self, data)
+
+
+class NodeHacked(aiosm.node.Node, ResponderHacked):
     async def callback(self, response) -> None:
-        """Hacking callback for receiving messages"""
+        """has to be in Node for use of self.host
+
+        todo generalise
+        """
         message = SensorLog()
         try:
             message.ParseFromString(response)
         except protobuf_message.DecodeError:
-            breakpoint()
+            breakpoint()  # todo handle properly
 
         global pot_value
         pot_value = message.pot / 4096
 
-        global last_request
-        if last_request + cool_down < time.time():
-            await self.host.send_light_request()
-            last_request = time.time()
+        self.host.brightness = pot_value
+        print(f"brightness: {pot_value}")
+
+        # global last_request
+        # if last_request + cool_down < time.time():
+        #     await self.host.send_light_request()
+        #     last_request = time.time()
 
 
+# overload custom node
 aiosm.host.Node = NodeHacked
 
 
@@ -82,67 +105,31 @@ class SubHost(aiosm.host.Host):
         super().__init__(addr=addr, port=port)
         self.message = LightRequest()
 
-        sel
-        self.message.lights = self.lights
+        self.message.lights = self.lights = 10
         self.message.offset = 0
 
+        self.brightness = 1
+
     async def send_light_request(self):
-        del self.message.value_array[:]
-        # todo: don't use Radio.ETX
-        #  random ints will result in ETX
-        self.message.value_array.extend([RGBValue(
-            red=random.randint(0, 7) * 16,
-            green=random.randint(0, 7) * 16,
-            blue=random.randint(0, 7) * 16,
-        ) for _i in range(self.lights)])
-        # self.message.value_array.extend([RGBValue(
-        #     red=64,
-        #     green=64,
-        #     blue=blue=random.randint(0, 1) * 256,
-        # ) for _i in range(self.lights)])
+        del self.message.value_array[:]  # recycling message
+        max_brightness = int(self.brightness * 255)
 
         for i in range(self.lights):
-            red = self.message.value_array[i].red
-            green = self.message.value_array[i].green
-            blue = self.message.value_array[i].blue
+            red = random.randint(0, max_brightness)
+            green = random.randint(0, max_brightness)
+            blue = random.randint(0, max_brightness)
+            self.message.value_array.append(RGBValue(red=red, green=green, blue=blue))
             print(f"RGB {i}: ({red}, {green}, {blue})")
 
         for connection in self.connections:
-            # dprint("Sending", self.message)
-            # data = message.encode()
-            # todo move to NodeHacked.pack()
-            data = self.message.SerializeToString()
-            if not USING_HEADER:
-                if connection.ETX in data:
-                    raise Exception(
-                        'message contains exit sequence: ' + connection.ETX.decode())  # todo create custom Exception
-                data += connection.ETX
-            else:
-                data_len = len(data)
-                print(data_len)
-                byte_mask = ((1 << 8)-1)
-                # header = r''.join([
-                #     (data_len >> (8 * i)) & byte_mask
-                #     for i in range(HEADER_LEN)
-                # ])
-                header = bytes([
-                    (data_len >> (8 * (HEADER_LEN-i-1))) & byte_mask
-                    for i in range(HEADER_LEN)
-                ])
-                print(header)
-                data = header + data
-            connection.writer.write(data)
-            await connection.writer.drain()
+            await connection.send(self.message)
 
     async def run(self):
         await super(SubHost, self).run()
-
         await asyncio.sleep(1)
 
         while True:
             await self.send_light_request()
-
-            # clock.tick(1)  # fps
             await asyncio.sleep(8)
 
 # look into async executor pool
