@@ -5,9 +5,37 @@ if the wifi adapter won't power up, or the pi keeps hitting kernal panics, then 
 
     todo:
         aiosm
-            use header
-                use Radio.ETX for end of header?
-                    no
+            when idle, wait for a request to `receive` message
+            proto messages/request
+                receive
+                    size
+                    action message type
+                action
+                    set_value(s)
+                    set_wifi
+                    set_lights
+                    set_motors
+                    start_subprocess
+                    set_eprom
+                    set_event listeners
+                        sensors/values thresholds
+                        passive events
+                        active events
+                            callbacks
+                    report/read/return
+                        echo/heartbeat
+                        list of sensors
+                        time received (testing network and clock)
+                        passive events
+                            sensors/values reaching thresholds
+                        battery/power usage
+                        device_info
+                            protocol version
+                            time up
+
+
+
+
 """
 import asyncio
 import random
@@ -21,7 +49,7 @@ from coronation.python.example_pb2 import LightRequest, RGBValue, SensorLog
 print("Begining project jubliee")
 
 
-addr, port = "192.168.0.18", 8089
+addr, port = "192.168.1.130", 8089
 
 pot_value = 0
 last_request = 0

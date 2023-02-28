@@ -24,11 +24,11 @@
   // char ssid[] = "Cherry-Rose"; //  your network SSID (name)
   // char pass[] = "DuckandMook";    // your network password (use for WPA, or use as key for WEP)
 
-//   char ssid[] = "BT-6FCJ6X"; //  your network SSID (name)
-//   char pass[] = "mHfKDAeMfV74cQ";    // your network password (use for WPA, or use as key for WEP)
+  char ssid[] = "BT-6FCJ6X"; //  your network SSID (name)
+  char pass[] = "mHfKDAeMfV74cQ";    // your network password (use for WPA, or use as key for WEP)
 
-  char ssid[] = "VM3877152"; //  your network SSID (name)
-  char pass[] = "s7kyTysrddbg";    // your network password (use for WPA, or use as key for WEP)
+//   char ssid[] = "VM3877152"; //  your network SSID (name)
+//   char pass[] = "s7kyTysrddbg";    // your network password (use for WPA, or use as key for WEP)
 
   // char ssid[] = "leaf"; //  your network SSID (name)
   // char pass[] = "";    // your network password (use for WPA, or use as key for WEP)
@@ -47,8 +47,7 @@
 
 
 
-// IPAddress server(192, 168, 5, 1);
-IPAddress server(192, 168, 0, 18);
+IPAddress server(192, 168, 1, 130);
 int port = 8089;
 
 #define USING_HEADER true
