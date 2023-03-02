@@ -34,6 +34,14 @@ if the wifi adapter won't power up, or the pi keeps hitting kernal panics, then 
                             time up
 
 
+    sending a message consists of:
+        header - set size {HEADER_LEN}, encoded in big endian
+            size of Receive message
+        Receive message
+            size: of next message
+            type: proto message type url
+                fixme can't figure out how to decode strings, use enum for now
+
 
 
 """
@@ -42,9 +50,9 @@ import random
 
 import aiosm
 
-from google.protobuf import message as protobuf_message
+from google.protobuf import message as Message
 
-from coronation.python.example_pb2 import LightRequest, RGBValue, SensorLog
+from coronation.python.example_pb2 import ReceiveRequest, LightRequest, RGBValue, SensorReport
 
 print("Begining project jubliee")
 
@@ -61,16 +69,26 @@ HEADER_LEN = 4  # size in bytes
 
 
 class RadioHacked(aiosm.radio.Radio):
-    def prepare(self, data: bytes) -> bytes:
-        if not USING_HEADER:
-            if self.ETX in data:
+    def prepare(self, message: Message) -> bytes:
+        """todo add support for ReceiveRequest"""
+        packed_message = message.SerializeToString()
+        if not USING_HEADER:  # todo deprecate use of ETX (or use ETX in place of HEADER_LEN)
+            if self.ETX in packed_message:
                 raise Exception(
                     'message contains exit sequence: ' + self.ETX.decode())  # todo create custom Exception
-            data += self.ETX
+            packed_message += self.ETX
         else:
-            data_len = len(data)
-            header = data_len.to_bytes(HEADER_LEN, byteorder='big')
-            data = header + data
+            message_len = len(packed_message)
+            message_type = {
+                "ReceiveRequest": ReceiveRequest.RequestType.ReceiveRequest,
+                "LightRequest": ReceiveRequest.RequestType.LightRequest
+            }[message.DESCRIPTOR.full_name]
+            receive_request = ReceiveRequest(size=message_len, type=message_type)
+
+            packed_receive_request = receive_request.SerializeToString()
+            request_len = len(packed_receive_request)
+            header = request_len.to_bytes(HEADER_LEN, byteorder='big')
+            data = header + packed_receive_request + packed_message
         return data
 
     def unpack(self, data: bytes) -> bytes:
@@ -82,7 +100,7 @@ class RadioHacked(aiosm.radio.Radio):
         if not USING_HEADER:
             return await super().receive()
 
-        # todo consider using self.reader.readexactly(HEADER_LEN)
+        # todo consider using self.reader.readexactly(HEADER_LEN) for error detection
         raw_data_len = await self.reader.read(HEADER_LEN)  # fixme
         data_len = int.from_bytes(raw_data_len, byteorder='big')
         message = await self.reader.read(data_len)
@@ -90,9 +108,8 @@ class RadioHacked(aiosm.radio.Radio):
 
 
 class ResponderHacked(aiosm.responder.Responder, RadioHacked):
-    def prepare(self, message: protobuf_message) -> bytes:
-        data = message.SerializeToString()
-        return RadioHacked.prepare(self, data)  # todo review if not using super() is safe
+    def prepare(self, message: Message) -> bytes:
+        return RadioHacked.prepare(self, message)  # todo review if not using super() is safe
 
     def unpack(self, data: bytes) -> any:
         # todo use protobuf
@@ -106,10 +123,10 @@ class NodeHacked(aiosm.node.Node, ResponderHacked):
 
         todo generalise
         """
-        message = SensorLog()
+        message = SensorReport()
         try:
             message.ParseFromString(response)
-        except protobuf_message.DecodeError:
+        except Message.DecodeError:
             breakpoint()  # todo handle properly
 
         global pot_value

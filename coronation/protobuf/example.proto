@@ -1,5 +1,15 @@
 syntax = "proto3";
 
+//consider using ProtobufAny
+message ReceiveRequest {
+     enum RequestType{
+      ReceiveRequest = 0;
+      LightRequest = 2;
+   }
+  int32 size = 1;
+  RequestType type = 2;
+}
+
 message RGBValue {
   int32 red = 1;
   int32 green = 2;
@@ -12,6 +22,6 @@ message LightRequest {
   repeated RGBValue value_array = 3;
 }
 
-message SensorLog {
+message SensorReport {
   int32 pot = 1;
 }

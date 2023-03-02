@@ -124,7 +124,8 @@ void sendBuffer(Buffer* buffer) {
   #endif
 }
 
-void recieveBuffer(Buffer* buffer) {
+
+void receiveBuffer(Buffer* buffer) {
   #if USING_HEADER
     client.read(buffer->header, HEADER_LEN);
 
@@ -321,24 +322,25 @@ const int POT_PIN = 35;
 // bool last_btn_state = false;
 int last_dial_value = 0;
 
-SensorLog sensor_log = SensorLog_init_zero;
+SensorReport sensor_report = SensorReport_init_zero;
 
+//outgoing
 void log_local_sensors() {
 //   bool new_btn_state = digitalRead(BTN_PIN);
   int dial_value = analogRead(POT_PIN);
 
   if (dial_value != last_dial_value) {
-        bufferOut->len = SensorLog_size;
+        bufferOut->len = SensorReport_size;
         resizeBuffer(bufferOut, bufferOut->len);
 
 //     pb_ostream_t stream = pb_ostream_from_buffer(bufferOut->packet, sizeof(buffer));
     pb_ostream_t stream = pb_ostream_from_buffer(bufferOut->packet, bufferOut->len);
-    sensor_log.pot = dial_value;
+    sensor_report.pot = dial_value;
 
     Serial.printf("Logging: %d\n", dial_value);
 
 
-    status = pb_encode(&stream, SensorLog_fields, &sensor_log);
+    status = pb_encode(&stream, SensorReport_fields, &sensor_report);
     bufferOut->len = stream.bytes_written;
 
     if (!status) {
@@ -379,8 +381,12 @@ static bool rgb_decode(pb_istream_t *stream, const pb_field_t *field, void **arg
 
 LightRequest light_request = LightRequest_init_default;
 
-
-void parse_command(Buffer* command) {
+//incoming
+void parse_command(ReceiveRequest_type_ENUMTYPE message_type, Buffer* command) {  // todo rewrite and use message_type
+    if (message_type != ReceiveRequest_RequestType_LightRequest) {  // fixme
+        Serial.printf("Decoding failed: unrecognized message type %s", message_type);
+        return;
+    }
 //   Serial.print("Recieved: ");
 //   Serial.write(command->packet, command->len);
 //   Serial.println();
@@ -484,6 +490,25 @@ void parse_command(Buffer* command) {
 //   }
 }
 
+
+ReceiveRequest receive_request = ReceiveRequest_init_default;
+
+void receive_message(Buffer* command) {  // todo rename command
+    pb_istream_t stream = pb_istream_from_buffer(command->packet, command->len);
+    status = pb_decode(&stream, ReceiveRequest_fields, &receive_request);
+
+    /* Check for errors... */
+    if (!status) {
+        Serial.printf("Decoding failed: %s\n", PB_GET_ERROR(&stream));
+    }
+    else{
+        resizeBuffer(bufferIn, receive_request.size);
+        client.read(bufferIn->packet, bufferIn->len);
+
+        parse_command(receive_request.type, bufferIn);
+    }
+}
+
 void fill_strip(int r, int g, int b) {
   for (int i=0; i<NUM_LEDS; i++) {
     if (i < 10)
@@ -547,8 +572,8 @@ void loop() {
   digitalWrite(LED_PIN, cycle%2==0);
 
   if (client.available()) {
-    recieveBuffer(bufferIn);
-    parse_command(bufferIn);
+    receiveBuffer(bufferIn);
+    receive_message(bufferIn);
   }
   
 //   if (Serial.available() > 0) {

@@ -31,3 +31,5 @@ deadlined:
 * ~~newyear~~ (missed)
 * Coronation
 
+consider the term: immersive peripherals
+
