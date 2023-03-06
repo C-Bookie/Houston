@@ -25,3 +25,8 @@ message LightRequest {
 message SensorReport {
   int32 pot = 1;
 }
+
+message Acknowledge {
+  // message ID
+}
+

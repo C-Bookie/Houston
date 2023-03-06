@@ -132,18 +132,18 @@ void receiveBuffer(Buffer* buffer) {
     buffer->len = 0;
     unsigned int byte_mask = ((1<<8)-1);
     // fixme printing debugging header
-    Serial.print("header: [");
+//     Serial.print("header: [");
     for (int i=0; i<HEADER_LEN; i++){
-        if (i!=0)
-            Serial.print(", ");
+//         if (i!=0)
+//             Serial.print(", ");
 
-      Serial.print("0x");
-      Serial.print(buffer->header[i], HEX);
+//       Serial.print("0x");
+//       Serial.print(buffer->header[i], HEX);
       buffer->len |= buffer->header[i] >> (8 * (HEADER_LEN-i-1));
     }
-    Serial.print("] translated: ");
-    Serial.printf("%d", buffer->len);
-    Serial.println();
+//     Serial.print("] translated: ");
+//     Serial.printf("%d", buffer->len);
+//     Serial.println();
 
     resizeBuffer(buffer, buffer->len);
     client.read(buffer->packet, buffer->len);
@@ -183,6 +183,7 @@ void receiveBuffer(Buffer* buffer) {
 void printStatus() {
   #if WIFI
     // print the SSID of the network you're attached to:
+    Serial.println("==Status==");
     Serial.print("SSID: ");
     Serial.println(WiFi.SSID());
     // print your WiFi shield's IP address:
@@ -212,66 +213,77 @@ void printStatus() {
 }
 
 void connectionSanity() {
-  while (!client.connected()) {
-    fill_strip(128, 128, 0);  // YELLOW
+    if (!client.connected()){
+      while (!client.connected()) {
+        fill_strip(128, 128, 0);  // YELLOW
 
-    #if WIFI
-      while (status != WL_CONNECTED) {
-        fill_strip(128, 0, 0);  // RED
+        #if WIFI
+          while (status != WL_CONNECTED) {
+            fill_strip(128, 0, 0);  // RED
 
-        Serial.print("Attempting to connect to SSID: ");
-        Serial.println(ssid);
-        // Connect to WPA/WPA2 network. Change this line if using open or WEP network:
-        if (pass != "")
-            WiFi.begin(ssid, pass);
-        else
-            WiFi.begin(ssid);
-        status = WiFi.waitForConnectResult();
-        if (status != WL_CONNECTED) {
-          Serial.print("Connecting failed with status: ");
-          if (status == WL_IDLE_STATUS)
-              Serial.println("WL_IDLE_STATUS");
-          else if (status == WL_NO_SSID_AVAIL)
-              Serial.println("WL_NO_SSID_AVAIL");
-          else if (status == WL_SCAN_COMPLETED)
-              Serial.println("WL_SCAN_COMPLETED");
-          else if (status == WL_CONNECT_FAILED)
-              Serial.println("WL_CONNECT_FAILED");
-          else if (status == WL_CONNECTION_LOST)
-              Serial.println("WL_CONNECTION_LOST");
-          else if (status == WL_DISCONNECTED)
-              Serial.println("WL_DISCONNECTED");
-          else
-              Serial.println(WL_CONNECTED);
-          listNetworks();
+            Serial.print("Attempting to connect to SSID: ");
+            Serial.println(ssid);
+            // Connect to WPA/WPA2 network. Change this line if using open or WEP network:
+            if (pass != "")
+                WiFi.begin(ssid, pass);
+            else
+                WiFi.begin(ssid);
+            status = WiFi.waitForConnectResult();
+            if (status != WL_CONNECTED) {
+              Serial.print("Connecting failed with status: ");
+              if (status == WL_IDLE_STATUS)
+                  Serial.println("WL_IDLE_STATUS");
+              else if (status == WL_NO_SSID_AVAIL)
+                  Serial.println("WL_NO_SSID_AVAIL");
+              else if (status == WL_SCAN_COMPLETED)
+                  Serial.println("WL_SCAN_COMPLETED");
+              else if (status == WL_CONNECT_FAILED)
+                  Serial.println("WL_CONNECT_FAILED");
+              else if (status == WL_CONNECTION_LOST)
+                  Serial.println("WL_CONNECTION_LOST");
+              else if (status == WL_DISCONNECTED)
+                  Serial.println("WL_DISCONNECTED");
+              else
+                  Serial.println(WL_CONNECTED);
+              listNetworks();
+              // wait 1 second for connection:
+              delay(1000);
+            }
+          }
+        #endif
+
+        Serial.print("Connecting to ");
+        Serial.print(server);
+        Serial.print(":");
+        Serial.print(port);
+        Serial.println("...");
+        client.setTimeout(10000);
+        if (client.connect(server, port)) {
+            // fixme need proper detection if client is connected besides timeout
+
+              delay(100);
+          if (!client.connected()) {
+              Serial.println("Error occurred whilst connecting");
+              delay(1000);
+          } else {
+              Serial.println("Connected");
+              fill_strip(0, 128, 0);  // GREEN
+              printStatus();
+
+    //       unsigned char message[] = "{\"type\": \"subscribe\", \"args\": [\"pitta\"]}";
+    //       resizeBuffer(bufferOut, 40);
+    //       memcpy(bufferOut->packet, message, bufferOut->len);
+    //       sendBuffer(bufferOut);
+            }
+        } else {
+          fill_strip(0, 0, 128);  //BLUE
+          Serial.println("Connecting timedout!");
           // wait 1 second for connection:
           delay(1000);
         }
       }
-    #endif
 
-    Serial.print("Connecting to ");
-    Serial.print(server);
-    Serial.print(":");
-    Serial.print(port);
-    Serial.println("...");
-    client.setTimeout(10000);
-    if (client.connect(server, port)) {
-      Serial.println("Connected");
-      fill_strip(0, 128, 0);  // GREEN
-      printStatus();
-
-//       unsigned char message[] = "{\"type\": \"subscribe\", \"args\": [\"pitta\"]}";
-//       resizeBuffer(bufferOut, 40);
-//       memcpy(bufferOut->packet, message, bufferOut->len);
-//       sendBuffer(bufferOut);
-
-    } else {
-      fill_strip(0, 0, 128);  //BLUE
-      Serial.println("Connecting timedout!");
-      // wait 1 second for connection:
-      delay(1000);
-    }
+      fill_strip(0, 0, 0);
   }
 }
 
@@ -322,7 +334,7 @@ const int POT_PIN = 35;
 // bool last_btn_state = false;
 int last_dial_value = 0;
 
-SensorReport sensor_report = SensorReport_init_zero;
+SensorReport sensor_report = SensorReport_init_default;
 
 //outgoing
 void log_local_sensors() {
@@ -355,6 +367,24 @@ void log_local_sensors() {
   }
 }
 
+Acknowledge acknowledge = Acknowledge_init_default;
+
+void report_acknowledge() {
+    bufferOut->len = Acknowledge_size;
+    resizeBuffer(bufferOut, bufferOut->len);
+
+    pb_ostream_t stream = pb_ostream_from_buffer(bufferOut->packet, bufferOut->len);
+    status = pb_encode(&stream, Acknowledge_fields, &acknowledge);
+    bufferOut->len = stream.bytes_written;
+
+    if (!status) {
+        Serial.printf("Encoding failed: %s\n", PB_GET_ERROR(&stream));
+        // return 1;
+    } else {
+         sendBuffer(bufferOut);
+    }
+}
+
 int counter;
 
 static bool rgb_decode(pb_istream_t *stream, const pb_field_t *field, void **arg) {
@@ -370,7 +400,7 @@ static bool rgb_decode(pb_istream_t *stream, const pb_field_t *field, void **arg
             Serial.printf("Decoding failed: %s\n", PB_GET_ERROR(stream));
             return false;
         }
-        Serial.printf("RGB %d: (%d, %d, %d)\n", counter, rgb_value.red, rgb_value.green, rgb_value.blue);
+//         Serial.printf("RGB %d: (%d, %d, %d)\n", counter, rgb_value.red, rgb_value.green, rgb_value.blue);
         leds[counter] = CRGB(rgb_value.red, rgb_value.green, rgb_value.blue);
 
         counter += 1;
@@ -383,7 +413,7 @@ LightRequest light_request = LightRequest_init_default;
 
 //incoming
 void parse_command(ReceiveRequest_type_ENUMTYPE message_type, Buffer* command) {  // todo rewrite and use message_type
-    if (message_type != ReceiveRequest_RequestType_LightRequest) {  // fixme
+    if (message_type != ReceiveRequest_RequestType_LightRequest) {  // fixme?
         Serial.printf("Decoding failed: unrecognized message type %s", message_type);
         return;
     }
@@ -396,7 +426,7 @@ void parse_command(ReceiveRequest_type_ENUMTYPE message_type, Buffer* command) {
 //     light_request.value_array.arg = &decodedData;
     light_request.value_array.funcs.decode = rgb_decode;
 //     light_request.value_array.funcs.args = light_request.  // todo
-    counter = 0;
+    counter = light_request.offset;
 
     /* Create a stream that reads from the buffer. */
     pb_istream_t stream = pb_istream_from_buffer(command->packet, command->len);
@@ -413,7 +443,9 @@ void parse_command(ReceiveRequest_type_ENUMTYPE message_type, Buffer* command) {
     //         Serial.printf("RGB %d: (%d, %d, %d)\n", counter, rgb_value.red, rgb_value.green, rgb_value.blue);
 //         leds[counter] = CRGB(rgb_value.red, rgb_value.green, rgb_value.blue);
 
-    FastLED.show();
+//     FastLED.show();
+    report_acknowledge();
+
 //         Serial.printf("LightRequest(value_array=[\n");
 //         for (size_t i = 0; i < message.lights; i++) {
 //           Serial.printf(

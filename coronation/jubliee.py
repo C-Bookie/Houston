@@ -42,11 +42,15 @@ if the wifi adapter won't power up, or the pi keeps hitting kernal panics, then 
             type: proto message type url
                 fixme can't figure out how to decode strings, use enum for now
 
+    need to record standard deviation of echo time
+
 
 
 """
 import asyncio
+import colorsys
 import random
+import time
 
 import aiosm
 
@@ -62,6 +66,10 @@ addr, port = "192.168.1.130", 8089
 pot_value = 0
 last_request = 0
 cool_down = 1000
+
+time_on_host, time_on_client = [], []
+start_time_on_host, start_time_on_client = 0, 0
+count = 0
 
 
 USING_HEADER = True
@@ -106,6 +114,11 @@ class RadioHacked(aiosm.radio.Radio):
         message = await self.reader.read(data_len)
         return message
 
+    async def send(self, message: str) -> None:
+        # dprint("Sending", message)
+        self.sequence(message)
+        await self.writer.drain()
+
 
 class ResponderHacked(aiosm.responder.Responder, RadioHacked):
     def prepare(self, message: Message) -> bytes:
@@ -122,49 +135,75 @@ class NodeHacked(aiosm.node.Node, ResponderHacked):
         """has to be in Node for use of self.host
 
         todo generalise
+            decode ReceiveRequest
         """
-        message = SensorReport()
-        try:
-            message.ParseFromString(response)
-        except Message.DecodeError:
-            breakpoint()  # todo handle properly
 
-        global pot_value
-        pot_value = message.pot / 4096
+        receiving_acknowledge = True
+        receiving_sensor_report = False
 
-        self.host.brightness = pot_value
-        print(f"brightness: {pot_value}")
+        if receiving_acknowledge:
+            # print("acknowledge received")
+            global waiting
+            waiting = False
+            global start_time_on_host, time_on_client
+            start_time_on_host = time.time()
+            time_on_client.append(start_time_on_host - start_time_on_client)
 
-        # global last_request
-        # if last_request + cool_down < time.time():
-        #     await self.host.send_light_request()
-        #     last_request = time.time()
+        if receiving_sensor_report:
+            message = SensorReport()
+            try:
+                message.ParseFromString(response)
+            except Message.DecodeError:
+                breakpoint()  # todo handle properly
+
+            global pot_value
+            pot_value = message.pot / 4096
+
+            self.host.brightness = pot_value
+            print(f"brightness: {pot_value}")
+
+            # global last_request
+            # if last_request + cool_down < time.time():
+            #     await self.host.send_light_request()
+            #     last_request = time.time()
+
+    async def run(self):
+        await self.host.send_light_request()
+        await super().run()
 
 
 # overload custom node
 aiosm.host.Node = NodeHacked
 
+waiting = False
+
 
 class SubHost(aiosm.host.Host):
+
     def __init__(self):
         super().__init__(addr=addr, port=port)
         self.message = LightRequest()
 
         self.message.lights = self.lights = 10
-        self.message.offset = 0
+        self.message.offset = 4
 
         self.brightness = 1
+        self.rotation_speed = 2
 
     async def send_light_request(self):
         del self.message.value_array[:]  # recycling message
-        max_brightness = int(self.brightness * 255)
-
+        # max_brightness = int(self.brightness * 255)
         for i in range(self.lights):
-            red = random.randint(0, max_brightness)
-            green = random.randint(0, max_brightness)
-            blue = random.randint(0, max_brightness)
+            h = (time.time() / self.rotation_speed) + (i / self.lights) % 1
+            red, green, blue = colorsys.hsv_to_rgb(h, 3/4, self.brightness)
+            red = int(red * 255)
+            green = int(green * 255)
+            blue = int(blue * 255)
+            # red = random.randint(0, max_brightness)
+            # green = random.randint(0, max_brightness)
+            # blue = random.randint(0, max_brightness)
             self.message.value_array.append(RGBValue(red=red, green=green, blue=blue))
-            print(f"RGB {i}: ({red}, {green}, {blue})")
+            # print(f"RGB {i}: ({red}, {green}, {blue})")
 
         for connection in self.connections:
             await connection.send(self.message)
@@ -173,12 +212,39 @@ class SubHost(aiosm.host.Host):
         await super(SubHost, self).run()
         await asyncio.sleep(1)
 
+        global waiting
+        global start_time_on_host
+
         while True:
-            await self.send_light_request()
-            await asyncio.sleep(8)
+            if not waiting:
+                waiting = True
+                await self.send_light_request()
+                global time_on_host, start_time_on_client, count
+                count += 1
+                start_time_on_client = time.time()
+                time_on_host.append(start_time_on_client - start_time_on_host)
+
+            await asyncio.sleep(0)
+            # await asyncio.sleep(1/(2**3))  # todo replace with await for confirmation of message received
 
 # look into async executor pool
 # https://stackoverflow.com/questions/29269370/how-to-properly-create-and-run-concurrent-tasks-using-pythons-asyncio-module
+
+
+async def status_printer():
+    global time_on_host, time_on_client, count
+    while True:
+        if time_on_host and time_on_client:
+            print(
+                f"{count=},",
+                f"total_time_on_host={sum(time_on_host):.4f},",
+                f"total_time_on_client={sum(time_on_client):.4f},",
+                f"max_time_on_host={max(time_on_host):.4f},",
+                f"max_time_on_client={max(time_on_client):.4f}"
+            )
+            time_on_host, time_on_client = [], []
+            count = 0
+        await asyncio.sleep(1)
 
 
 def main():
@@ -189,8 +255,11 @@ def main():
     task1 = loop.create_task(host.run())
     task1.set_name("Host")
 
+    task2 = loop.create_task(status_printer())
+    task2.set_name("Status")
+
     asyncio.gather(task1)
-    # asyncio.gather(task2)
+    asyncio.gather(task2)
     loop.run_forever()
     loop.close()
 
