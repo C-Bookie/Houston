@@ -5,6 +5,8 @@ message ReceiveRequest {
      enum RequestType{
       ReceiveRequest = 0;
       LightRequest = 2;
+      SensorReport = 3;
+      Acknowledge = 4;
    }
   int32 size = 1;
   RequestType type = 2;

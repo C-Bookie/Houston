@@ -56,7 +56,7 @@ import aiosm
 
 from google.protobuf import message as Message
 
-from coronation.python.example_pb2 import ReceiveRequest, LightRequest, RGBValue, SensorReport
+from coronation.python.example_pb2 import ReceiveRequest, LightRequest, RGBValue, SensorReport, Acknowledge
 
 print("Begining project jubliee")
 
@@ -104,14 +104,34 @@ class RadioHacked(aiosm.radio.Radio):
             return data[0:-self.ETX_LEN]
         pass
 
-    async def receive(self) -> str:
+    async def receive(self) -> any:
         if not USING_HEADER:
             return await super().receive()
 
         # todo consider using self.reader.readexactly(HEADER_LEN) for error detection
         raw_data_len = await self.reader.read(HEADER_LEN)  # fixme
         data_len = int.from_bytes(raw_data_len, byteorder='big')
-        message = await self.reader.read(data_len)
+        raw_recieve_request = await self.reader.read(data_len)
+        recieve_request = ReceiveRequest()
+
+        try:
+            recieve_request.ParseFromString(raw_recieve_request)
+        except Message.DecodeError as e:
+            breakpoint()  # todo handle properly
+
+        raw_message = await self.reader.read(recieve_request.size)
+        message = {
+            ReceiveRequest.RequestType.ReceiveRequest: ReceiveRequest,
+            ReceiveRequest.RequestType.LightRequest: LightRequest,
+            ReceiveRequest.RequestType.SensorReport: SensorReport,
+            ReceiveRequest.RequestType.Acknowledge: Acknowledge,
+        }[recieve_request.type]()
+
+        try:
+            message.ParseFromString(raw_message)
+        except Message.DecodeError as e:
+            breakpoint()  # todo handle properly
+
         return message
 
     async def send(self, message: str) -> None:
@@ -138,10 +158,7 @@ class NodeHacked(aiosm.node.Node, ResponderHacked):
             decode ReceiveRequest
         """
 
-        receiving_acknowledge = True
-        receiving_sensor_report = False
-
-        if receiving_acknowledge:
+        if isinstance(response, Acknowledge):
             # print("acknowledge received")
             global waiting
             waiting = False
@@ -149,18 +166,9 @@ class NodeHacked(aiosm.node.Node, ResponderHacked):
             start_time_on_host = time.time()
             time_on_client.append(start_time_on_host - start_time_on_client)
 
-        if receiving_sensor_report:
-            message = SensorReport()
-            try:
-                message.ParseFromString(response)
-            except Message.DecodeError:
-                breakpoint()  # todo handle properly
-
-            global pot_value
-            pot_value = message.pot / 4096
-
-            self.host.brightness = pot_value
-            print(f"brightness: {pot_value}")
+        if isinstance(response, SensorReport):
+            self.host.brightness = response.pot / 4096
+            print(f"brightness: {self.host.brightness}")
 
             # global last_request
             # if last_request + cool_down < time.time():

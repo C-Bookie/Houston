@@ -67,8 +67,8 @@ struct Buffer {  // pass by reference
   int len;
 };
 
-struct Buffer *bufferIn;
-struct Buffer *bufferOut;
+struct Buffer *request_buffer;
+struct Buffer *message_buffer;
 
 Buffer* newBuffer() {
   Buffer* buffer = (Buffer*)malloc(sizeof(Buffer));
@@ -95,11 +95,7 @@ void printBuffer(Buffer* buffer) {
 void resizeBuffer(Buffer* buffer, int len) {
   buffer->len = len;
   #if USING_HEADER  // fixme unsure if this code is requiered when !USING_HEADER
-    unsigned int byte_mask = ((1<<8)-1);
-    for (int i=0; i<HEADER_LEN; i++)
-//       buffer->header[i] = (buffer->len >> (8 * (HEADER_LEN-i-1))) & ((2<<8)-1);
-      buffer->header[i] = (buffer->len >> (8 * (HEADER_LEN-i-1))) & byte_mask;
-//       buffer->header[i] = (buffer->len >> (8 * i)) & byte_mask;
+      correct_header(buffer);
   #endif
 
   int size = buffer->len * sizeof(char);
@@ -108,9 +104,23 @@ void resizeBuffer(Buffer* buffer, int len) {
   // memset(buffer->packet, 0, size);
 }
 
+
+void correct_header(Buffer* buffer) {
+    unsigned int byte_mask = ((1<<8)-1);
+    for (int i=0; i<HEADER_LEN; i++)
+//       buffer->header[i] = (buffer->len >> (8 * (HEADER_LEN-i-1))) & ((2<<8)-1);
+      buffer->header[i] = (buffer->len >> (8 * (HEADER_LEN-i-1))) & byte_mask;
+//       buffer->header[i] = (buffer->len >> (8 * i)) & byte_mask;
+}
+
 void sendBuffer(Buffer* buffer) {
 //   Serial.print("Sending: ");
-//   Serial.write(buffer->packet, buffer->len);
+//     for (int i = 0; i < buffer->len; i++) {
+//         Serial.print("0x");
+//         Serial.print(buffer->packet[i], HEX);
+//         Serial.print(", ");
+//     }
+//     Serial.println();
 //   Serial.print("\n");
 
   #if USING_HEADER
@@ -341,26 +351,34 @@ void log_local_sensors() {
 //   bool new_btn_state = digitalRead(BTN_PIN);
   int dial_value = analogRead(POT_PIN);
 
+    // todo, cap update rate
   if (dial_value != last_dial_value) {
-        bufferOut->len = SensorReport_size;
-        resizeBuffer(bufferOut, bufferOut->len);
+        resizeBuffer(message_buffer, SensorReport_size);  // todo review the safety of this
 
 //     pb_ostream_t stream = pb_ostream_from_buffer(bufferOut->packet, sizeof(buffer));
-    pb_ostream_t stream = pb_ostream_from_buffer(bufferOut->packet, bufferOut->len);
+    pb_ostream_t stream = pb_ostream_from_buffer(message_buffer->packet, message_buffer->len);
     sensor_report.pot = dial_value;
 
-    Serial.printf("Logging: %d\n", dial_value);
+//     Serial.printf("Logging: %d\n", dial_value);
 
 
     status = pb_encode(&stream, SensorReport_fields, &sensor_report);
-    bufferOut->len = stream.bytes_written;
+    message_buffer->len = stream.bytes_written;  // todo review if needed, maybe
 
     if (!status) {
         Serial.printf("Encoding failed: %s\n", PB_GET_ERROR(&stream));
-//         return 1;
     } else {
-//         sendBuffer(bufferOut);  # todo re-enable
 
+//         Serial.print("len : ");
+//         Serial.println(message_buffer->len);
+//         for (int i = 0; i < message_buffer->len; i++) {
+//             Serial.print("0x");
+//             Serial.print(message_buffer->packet[i], HEX);
+//             Serial.print(", ");
+//         }
+//         Serial.println();
+
+        send_message(ReceiveRequest_RequestType_SensorReport, message_buffer);
 
         last_dial_value = dial_value;
     }
@@ -370,18 +388,17 @@ void log_local_sensors() {
 Acknowledge acknowledge = Acknowledge_init_default;
 
 void report_acknowledge() {
-    bufferOut->len = Acknowledge_size;
-    resizeBuffer(bufferOut, bufferOut->len);
+    resizeBuffer(message_buffer, Acknowledge_size);
 
-    pb_ostream_t stream = pb_ostream_from_buffer(bufferOut->packet, bufferOut->len);
+    pb_ostream_t stream = pb_ostream_from_buffer(message_buffer->packet, message_buffer->len);
     status = pb_encode(&stream, Acknowledge_fields, &acknowledge);
-    bufferOut->len = stream.bytes_written;
+    message_buffer->len = stream.bytes_written;  // todo review if needed
 
     if (!status) {
         Serial.printf("Encoding failed: %s\n", PB_GET_ERROR(&stream));
         // return 1;
     } else {
-         sendBuffer(bufferOut);
+        send_message(ReceiveRequest_RequestType_Acknowledge, message_buffer);
     }
 }
 
@@ -412,7 +429,7 @@ static bool rgb_decode(pb_istream_t *stream, const pb_field_t *field, void **arg
 LightRequest light_request = LightRequest_init_default;
 
 //incoming
-void parse_command(ReceiveRequest_type_ENUMTYPE message_type, Buffer* command) {  // todo rewrite and use message_type
+void parse_command(ReceiveRequest_type_ENUMTYPE message_type, Buffer* buffer) {  // todo rewrite and use message_type
     if (message_type != ReceiveRequest_RequestType_LightRequest) {  // fixme?
         Serial.printf("Decoding failed: unrecognized message type %s", message_type);
         return;
@@ -429,7 +446,7 @@ void parse_command(ReceiveRequest_type_ENUMTYPE message_type, Buffer* command) {
     counter = light_request.offset;
 
     /* Create a stream that reads from the buffer. */
-    pb_istream_t stream = pb_istream_from_buffer(command->packet, command->len);
+    pb_istream_t stream = pb_istream_from_buffer(buffer->packet, buffer->len);
 
     /* Now we are ready to decode the message. */
     status = pb_decode(&stream, LightRequest_fields, &light_request);
@@ -443,7 +460,7 @@ void parse_command(ReceiveRequest_type_ENUMTYPE message_type, Buffer* command) {
     //         Serial.printf("RGB %d: (%d, %d, %d)\n", counter, rgb_value.red, rgb_value.green, rgb_value.blue);
 //         leds[counter] = CRGB(rgb_value.red, rgb_value.green, rgb_value.blue);
 
-//     FastLED.show();
+    FastLED.show();
     report_acknowledge();
 
 //         Serial.printf("LightRequest(value_array=[\n");
@@ -525,8 +542,8 @@ void parse_command(ReceiveRequest_type_ENUMTYPE message_type, Buffer* command) {
 
 ReceiveRequest receive_request = ReceiveRequest_init_default;
 
-void receive_message(Buffer* command) {  // todo rename command
-    pb_istream_t stream = pb_istream_from_buffer(command->packet, command->len);
+void receive_message(Buffer* buffer) {  // todo rename command
+    pb_istream_t stream = pb_istream_from_buffer(buffer->packet, buffer->len);
     status = pb_decode(&stream, ReceiveRequest_fields, &receive_request);
 
     /* Check for errors... */
@@ -534,10 +551,34 @@ void receive_message(Buffer* command) {  // todo rename command
         Serial.printf("Decoding failed: %s\n", PB_GET_ERROR(&stream));
     }
     else{
-        resizeBuffer(bufferIn, receive_request.size);
-        client.read(bufferIn->packet, bufferIn->len);
+        resizeBuffer(message_buffer, receive_request.size);
+        client.read(message_buffer->packet, message_buffer->len);
 
-        parse_command(receive_request.type, bufferIn);
+        parse_command(receive_request.type, message_buffer);
+    }
+}
+
+
+void send_message(ReceiveRequest_type_ENUMTYPE message_type, Buffer* buffer) {  // todo rename command
+//     Serial.print("Size: ");
+//     Serial.println(buffer->len);
+    receive_request.size = buffer->len;
+    receive_request.type = message_type;
+
+    resizeBuffer(request_buffer, ReceiveRequest_size);  // todo review if needed
+
+    pb_ostream_t stream = pb_ostream_from_buffer(request_buffer->packet, request_buffer->len);
+    status = pb_encode(&stream, ReceiveRequest_fields, &receive_request);
+    request_buffer->len = stream.bytes_written;  // todo review if needed, fixme header is wrong
+    correct_header(request_buffer);
+
+    if (!status) {
+        Serial.printf("Encoding failed: %s\n", PB_GET_ERROR(&stream));
+        // return 1;
+    } else {
+         sendBuffer(request_buffer);
+         //send message without endian header
+          client.write(buffer->packet, buffer->len);
     }
 }
 
@@ -564,8 +605,8 @@ void setup() {
 //   pinMode(BTN_PIN, INPUT);
   pinMode(POT_PIN, INPUT);
 
-  bufferIn = newBuffer();
-  bufferOut = newBuffer();
+  request_buffer = newBuffer();
+  message_buffer = newBuffer();
 
   #if WIFI
     // Set WiFi to station mode and disconnect from an AP if it was previously connected
@@ -604,8 +645,8 @@ void loop() {
   digitalWrite(LED_PIN, cycle%2==0);
 
   if (client.available()) {
-    receiveBuffer(bufferIn);
-    receive_message(bufferIn);
+    receiveBuffer(request_buffer);
+    receive_message(request_buffer);
   }
   
 //   if (Serial.available() > 0) {
