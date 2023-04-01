@@ -33,3 +33,11 @@ deadlined:
 
 consider the term: immersive peripherals
 
+
+
+
+# Setup
+
+* update IP
+* `brew install platformio protobuf nanopb-generator`
+* `make upload`

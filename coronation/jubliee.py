@@ -49,6 +49,7 @@ if the wifi adapter won't power up, or the pi keeps hitting kernal panics, then 
 """
 import asyncio
 import colorsys
+import math
 import random
 import time
 
@@ -61,7 +62,7 @@ from coronation.python.example_pb2 import ReceiveRequest, LightRequest, RGBValue
 print("Begining project jubliee")
 
 
-addr, port = "192.168.1.130", 8089
+addr, port = "192.168.0.44", 8089
 
 pot_value = 0
 last_request = 0
@@ -186,6 +187,27 @@ aiosm.host.Node = NodeHacked
 waiting = False
 
 
+def temp_to_rgb(temp):
+    temp = max(1000, min(40000, temp))
+    temp /= 100
+    red = 255
+    green = 255
+    blue = 255
+
+    if temp <= 66:
+        red = min(255, max(0, 255 * (1 - ((temp - 60) * (329.698727446 / (temp - 60))) / 255)))
+        green = min(255, max(0, 255 * (1 - ((temp - 60) * (99.4708025861 / (temp - 60))) / 255)))
+        blue = 255
+    else:
+        red = min(255, max(0, 255 * (1 - ((temp - 60) * (288.1221695283 / (temp - 60))) / 255)))
+        green = min(255, max(0, 255 * (1 - ((temp - 60) * (99.4708025861 / (temp - 60))) / 255)))
+        blue = min(255, max(0, 255 * (1 - ((temp - 60) * (138.5177312231 / (temp - 60))) / 255)))
+
+    return red, green, blue
+
+
+
+
 class SubHost(aiosm.host.Host):
 
     def __init__(self):
@@ -197,27 +219,78 @@ class SubHost(aiosm.host.Host):
 
         self.brightness = 1
         self.rotation_speed = 2
+        self.pulse_speed = 24
+        self.saturation_speed = 1
+        self.transition_speed = 1
+        self.modulation_speed = 0.9
 
-    async def send_light_request(self):
+    async def send_light_request_1(self):
         del self.message.value_array[:]  # recycling message
         # max_brightness = int(self.brightness * 255)
         for i in range(self.lights):
-            h = (time.time() / self.rotation_speed) + (i / self.lights) % 1
-            red, green, blue = colorsys.hsv_to_rgb(h, 3/4, self.brightness)
+            h = ((time.time() / self.rotation_speed) + (i / self.lights)) % 1
+            golden = (1 + 5 ** 0.5) / 2
+            s = ((time.time() / (-self.rotation_speed*golden)) + (i / self.lights)) % 1
+            s = (1/2) + (abs((s*2)-1)/2)
+
+            red, green, blue = colorsys.hsv_to_rgb(h, s, self.brightness)
             red = int(red * 255)
             green = int(green * 255)
             blue = int(blue * 255)
-            # red = random.randint(0, max_brightness)
-            # green = random.randint(0, max_brightness)
-            # blue = random.randint(0, max_brightness)
             self.message.value_array.append(RGBValue(red=red, green=green, blue=blue))
             # print(f"RGB {i}: ({red}, {green}, {blue})")
 
         for connection in self.connections:
             await connection.send(self.message)
 
+    async def send_light_request_2(self):
+        del self.message.value_array[:]  # recycling message
+
+        for i in range(self.lights):
+            h = ((time.time() / self.rotation_speed) + (i / self.lights)) % 1
+
+            # Smoother sine wave-based modulation for saturation
+            s = 0.5 * (1 + math.sin(2 * math.pi * (time.time() / self.saturation_speed) + (i / self.lights)))
+
+            # Smoother sine wave-based modulation for brightness
+            modulated_brightness = 0.5 * self.brightness * (
+                        1 + math.sin(2 * math.pi * (time.time() / self.pulse_speed) + (i / self.lights)))
+
+            red, green, blue = colorsys.hsv_to_rgb(h, s, modulated_brightness)
+            red = int(red * 255)
+            green = int(green * 255)
+            blue = int(blue * 255)
+            self.message.value_array.append(RGBValue(red=red, green=green, blue=blue))
+
+        for connection in self.connections:
+            await connection.send(self.message)
+
+    async def send_light_request_3(self):
+        del self.message.value_array[:]  # recycling message
+
+        for i in range(self.lights):
+            temp = ((time.time() / self.rotation_speed) + (i / self.lights)) % 1
+            temp = int(1000 + (temp * 4000))  # Convert the range of 1000K to 5000K and ensure temp is an integer
+
+            red, green, blue = temp_to_rgb(temp)
+            grb_color = (green, red, blue)  # Swap red and green values for GRB color order
+
+            # Convert float RGB values to integers
+            int_grb_color = (int(grb_color[0]), int(grb_color[1]), int(grb_color[2]))
+
+            self.message.value_array.append(
+                RGBValue(red=int_grb_color[0], green=int_grb_color[1], blue=int_grb_color[2]))
+
+        for connection in self.connections:
+            await connection.send(self.message)
+
+    send_light_request = send_light_request_1
+
     async def run(self):
-        await super(SubHost, self).run()
+        try:
+            await super(SubHost, self).run()
+        except OSError as exc:  # [Errno 49]
+            raise Exception("did you check the IP?") from exc
         await asyncio.sleep(1)
 
         global waiting

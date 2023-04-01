@@ -12,6 +12,7 @@
 #include <pb_decode.h>
 #include <pb_encode.h>
 
+
 #define WIFI true
 #define PRINT false
 
@@ -24,11 +25,11 @@
   // char ssid[] = "Cherry-Rose"; //  your network SSID (name)
   // char pass[] = "DuckandMook";    // your network password (use for WPA, or use as key for WEP)
 
-  char ssid[] = "BT-6FCJ6X"; //  your network SSID (name)
-  char pass[] = "mHfKDAeMfV74cQ";    // your network password (use for WPA, or use as key for WEP)
+//   char ssid[] = "BT-6FCJ6X"; //  your network SSID (name)
+//   char pass[] = "mHfKDAeMfV74cQ";    // your network password (use for WPA, or use as key for WEP)
 
-//   char ssid[] = "VM3877152"; //  your network SSID (name)
-//   char pass[] = "s7kyTysrddbg";    // your network password (use for WPA, or use as key for WEP)
+  char ssid[] = "VM0175425"; //  your network SSID (name)
+  char pass[] = "qstcphCj34gh";    // your network password (use for WPA, or use as key for WEP)
 
   // char ssid[] = "leaf"; //  your network SSID (name)
   // char pass[] = "";    // your network password (use for WPA, or use as key for WEP)
@@ -47,7 +48,7 @@
 
 
 
-IPAddress server(192, 168, 1, 130);
+IPAddress server(192, 168, 0, 44);
 int port = 8089;
 
 #define USING_HEADER true
@@ -59,13 +60,16 @@ int port = 8089;
   const unsigned char ETX = 0x03;  //end of transmission tag
 #endif
 
-struct Buffer {  // pass by reference
-  unsigned char* packet;
-  #if USING_HEADER
-    unsigned char* header;
-  #endif
-  int len;
-};
+
+#include "buffer.h"
+
+// struct Buffer {  // pass by reference
+//   unsigned char* packet;
+//   #if USING_HEADER
+//     unsigned char* header;
+//   #endif
+//   int len;
+// };
 
 struct Buffer *request_buffer;
 struct Buffer *message_buffer;
@@ -430,6 +434,9 @@ LightRequest light_request = LightRequest_init_default;
 
 //incoming
 void parse_command(ReceiveRequest_type_ENUMTYPE message_type, Buffer* buffer) {  // todo rewrite and use message_type
+
+    // ESP.restart();  /*ESP restart function*/  //todo implement
+
     if (message_type != ReceiveRequest_RequestType_LightRequest) {  // fixme?
         Serial.printf("Decoding failed: unrecognized message type %s", message_type);
         return;
@@ -461,6 +468,9 @@ void parse_command(ReceiveRequest_type_ENUMTYPE message_type, Buffer* buffer) { 
 //         leds[counter] = CRGB(rgb_value.red, rgb_value.green, rgb_value.blue);
 
     FastLED.show();
+    for (int i=0; i<NUM_LEDS; i++) {
+        leds[i] = CRGB(0, 0, 0);
+    }
     report_acknowledge();
 
 //         Serial.printf("LightRequest(value_array=[\n");
